@@ -7,7 +7,6 @@
 <meta name="description" content="Shared trip companion for the Siliguri, Darjeeling & Dooars hill circuit.">
 <meta name="theme-color" content="#171712">
 
-<link rel="manifest" id="manifest-link">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23171712'/%3E%3Cpath d='M10 70 L35 35 L50 55 L65 30 L92 70 Z' fill='%23E8A33D'/%3E%3Ccircle cx='72' cy='24' r='9' fill='%2358A893'/%3E%3C/svg%3E">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -219,15 +218,6 @@
           <div id="packing-list" class="flex flex-col gap-2 mb-3"></div>
           <button id="add-packing-btn" class="w-full text-center text-[11px] font-mono text-marigold-400 border border-dashed border-base-600 rounded-lg py-2 active:scale-[0.98] transition">+ add item</button>
         </div>
-        <a id="album-link" href="#" target="_blank" rel="noopener" class="block bg-gradient-to-br from-marigold-600 to-clay-600 rounded-2xl p-4 shadow-card active:scale-[0.98] transition">
-          <div class="flex items-center justify-between">
-            <div>
-              <h3 class="font-display font-bold text-base-950 text-sm tracking-wide">SHARED PHOTO ALBUM</h3>
-              <p class="text-base-950/70 text-xs mt-0.5">Open the collaborative Google Photos album</p>
-            </div>
-            <svg class="w-6 h-6 text-base-950" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </div>
-        </a>
       </div>
     </section>
   </main>
@@ -271,10 +261,11 @@ const FIREBASE_CONFIG = {
   projectId: "hill-trek",
   storageBucket: "hill-trek.firebasestorage.app",
   messagingSenderId: "40261390381",
-  appId: "1:40261390381:web:4f605eac110f84818a68a4"
+  appId: "1:40261390381:web:4f605eac110f84818a68a4",
+  measurementId: "G-02B40GVDBG"
 };
 
-const FIREBASE_ENABLED = true; // LIVE SYNC IS NOW ON!
+const FIREBASE_ENABLED = true;
 
 const TRIP_MEMBERS = ["Chiku", "Shubhi", "Sanjay", "Rama", "Rakshpal", "Arvind"];
 
@@ -286,7 +277,6 @@ const EMERGENCY_CONTACTS = [
   { label: "Ambulance", name: "National Ambulance", phone: "108" },
 ];
 
-const SHARED_ALBUM_URL = "https://photos.google.com";
 const MAP_CENTER = [26.95, 88.35];
 const MAP_DEFAULT_ZOOM = 10;
 const ALL_CATEGORIES = ["Pork/Beef Food", "Local Food", "Sightseeing", "Day Trip", "Nature", "Viewpoints", "Shopping", "Wildlife", "Monastery/Temple", "Chinese", "Tibetan"];
@@ -357,10 +347,25 @@ const state = {
 
 const db = (() => {
   let fbApp = null, fbRoot = null;
-  const LOCAL_KEY = "hilltrail_local_db_v3";
+  const LOCAL_KEY = "hilltrail_local_db_v4";
 
-  function loadLocal() { try { const raw = localStorage.getItem(LOCAL_KEY); return raw ? JSON.parse(raw) : {}; } catch (e) { return {}; } }
-  function saveLocal(data) { try { localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); } catch (e) { } }
+  function loadLocal() { 
+    try { 
+      const raw = window.localStorage.getItem(LOCAL_KEY); 
+      return raw ? JSON.parse(raw) : {}; 
+    } catch (e) { 
+      return window.__fallbackStorage || {}; 
+    } 
+  }
+  
+  function saveLocal(data) { 
+    try { 
+      window.localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); 
+    } catch (e) { 
+      window.__fallbackStorage = data; 
+    } 
+  }
+  
   const localListeners = {};
   function emitLocal(path) {
     const data = loadLocal();
@@ -369,38 +374,77 @@ const db = (() => {
   }
 
   if (FIREBASE_ENABLED) {
-    try { fbApp = firebase.initializeApp(FIREBASE_CONFIG); fbRoot = firebase.database(); } 
-    catch (e) { console.error("Firebase init failed"); }
+    try { 
+      fbApp = firebase.initializeApp(FIREBASE_CONFIG); 
+      fbRoot = firebase.database(); 
+    } catch (e) { 
+      console.error("Firebase init failed"); 
+    }
   }
 
   return {
     isLive: () => !!fbRoot,
     watch(path, cb) {
-      if (fbRoot) { fbRoot.ref(path).on("value", snap => cb(snap.val() || {})); } 
-      else { localListeners[path] = localListeners[path] || []; localListeners[path].push(cb); emitLocal(path); }
+      if (fbRoot) { 
+        fbRoot.ref(path).on("value", snap => cb(snap.val() || {})); 
+      } else { 
+        localListeners[path] = localListeners[path] || []; 
+        localListeners[path].push(cb); 
+        emitLocal(path); 
+      }
     },
     set(path, id, value) {
-      if (fbRoot) { return fbRoot.ref(`${path}/${id}`).set(value); } 
-      else { const data = loadLocal(); data[path] = data[path] || {}; data[path][id] = value; saveLocal(data); emitLocal(path); return Promise.resolve(); }
+      if (fbRoot) { 
+        return fbRoot.ref(`${path}/${id}`).set(value); 
+      } else { 
+        const data = loadLocal(); 
+        data[path] = data[path] || {}; 
+        data[path][id] = value; 
+        saveLocal(data); 
+        emitLocal(path); 
+        return Promise.resolve(); 
+      }
     },
     update(path, id, partial) {
-      if (fbRoot) { return fbRoot.ref(`${path}/${id}`).update(partial); } 
-      else { const data = loadLocal(); data[path] = data[path] || {}; data[path][id] = Object.assign({}, data[path][id] || {}, partial); saveLocal(data); emitLocal(path); return Promise.resolve(); }
+      if (fbRoot) { 
+        return fbRoot.ref(`${path}/${id}`).update(partial); 
+      } else { 
+        const data = loadLocal(); 
+        data[path] = data[path] || {}; 
+        data[path][id] = Object.assign({}, data[path][id] || {}, partial); 
+        saveLocal(data); 
+        emitLocal(path); 
+        return Promise.resolve(); 
+      }
     },
     push(path, value) {
       const id = (fbRoot ? fbRoot.ref(path).push().key : null) || `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       return this.set(path, id, value).then(() => id);
     },
     remove(path, id) {
-      if (fbRoot) { return fbRoot.ref(`${path}/${id}`).remove(); } 
-      else { const data = loadLocal(); if (data[path]) delete data[path][id]; saveLocal(data); emitLocal(path); return Promise.resolve(); }
+      if (fbRoot) { 
+        return fbRoot.ref(`${path}/${id}`).remove(); 
+      } else { 
+        const data = loadLocal(); 
+        if (data[path]) delete data[path][id]; 
+        saveLocal(data); 
+        emitLocal(path); 
+        return Promise.resolve(); 
+      }
     },
     seedIfEmpty(path, seedObject) {
       if (fbRoot) {
-        fbRoot.ref(path).once("value").then(snap => { if (!snap.exists() || Object.keys(snap.val() || {}).length === 0) { fbRoot.ref(path).set(seedObject); } });
+        fbRoot.ref(path).once("value").then(snap => { 
+          if (!snap.exists() || Object.keys(snap.val() || {}).length === 0) { 
+            fbRoot.ref(path).set(seedObject); 
+          } 
+        });
       } else {
         const data = loadLocal();
-        if (!data[path] || Object.keys(data[path]).length === 0) { data[path] = seedObject; saveLocal(data); }
+        if (!data[path] || Object.keys(data[path]).length === 0) { 
+          data[path] = seedObject; 
+          saveLocal(data); 
+        }
         emitLocal(path);
       }
     },
@@ -417,9 +461,15 @@ function toast(msg, tone = "default") {
   setTimeout(() => el.remove(), 3100);
 }
 
+// 1. COMPLETELY SAFE TEXT ESCAPING
 function escapeHtml(str) {
   if (str === null || str === undefined) return "";
-  return String(str).replace(/&/g, "&").replace(/</g, "<").replace(/>/g, ">").replace(/"/g, """).replace(/'/g, "'");
+  return String(str)
+    .split("&").join("&amp;")
+    .split("<").join("&lt;")
+    .split(">").join("&gt;")
+    .split('"').join("&quot;")
+    .split("'").join("&#39;");
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -452,11 +502,13 @@ function openModal(innerHtml, { wide = false } = {}) {
 function closeModal() { document.getElementById("modal-root").innerHTML = ""; }
 
 const ME_KEY = "hilltrail_me";
+
+// 2. SAFE STORAGE FOR LOCAL PHONES
 function getMe() { 
-  try { return localStorage.getItem(ME_KEY); } catch(e) { return state.me; } 
+  try { return window.localStorage.getItem(ME_KEY); } catch(e) { return state.me; } 
 }
 function setMe(name) { 
-  try { localStorage.setItem(ME_KEY, name); } catch(e) {} 
+  try { window.localStorage.setItem(ME_KEY, name); } catch(e) {} 
   state.me = name; 
   updateHeaderAvatar(); 
 }
@@ -583,9 +635,9 @@ function toggleVisited(id) {
   if (!place) return;
   const nowVisited = !place.visited;
   db.update("places", id, { visited: nowVisited, visitedBy: nowVisited ? state.me : null });
-  const btn = document.querySelector(`[data-visited-toggle="${CSS.escape(id)}"]`);
+  const btn = document.querySelector(`[data-visited-toggle="` + id + `"]`);
   if (btn) btn.classList.add("visited-pop");
-  toast(nowVisited ? `Marked "${place.name}" as visited ✅` : `Unmarked "${place.name}"`, nowVisited ? "success" : "default");
+  toast(nowVisited ? `Marked "` + place.name + `" as visited ✅` : `Unmarked "` + place.name + `"`, nowVisited ? "success" : "default");
 }
 
 function openPlaceDetail(id) {
@@ -718,7 +770,7 @@ document.getElementById("fab-add").addEventListener("click", () => {
 function initMap() {
   state.map = L.map("leaflet-map", { zoomControl: true, attributionControl: true }).setView(MAP_CENTER, MAP_DEFAULT_ZOOM);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    maxZoom: 19, attribution: '© OpenStreetMap contributors',
   }).addTo(state.map);
 }
 
@@ -766,7 +818,7 @@ function syncMapMarkers() {
 function locateMe() {
   const icon = document.getElementById("locate-icon");
   icon.classList.add("animate-spin");
-  if (!navigator.geolocation) { toast("Geolocation isn't available on this device.", "error"); icon.classList.remove("animate-spin"); return; }
+  if (!navigator.geolocation) { toast("Geolocation isn't available.", "error"); icon.classList.remove("animate-spin"); return; }
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       icon.classList.remove("animate-spin");
@@ -785,7 +837,7 @@ function locateMe() {
       renderFeed();
       toast("Live location updated", "success");
     },
-    (err) => { icon.classList.remove("animate-spin"); toast("Couldn't get your location — check location permissions.", "error"); },
+    (err) => { icon.classList.remove("animate-spin"); toast("Check location permissions.", "error"); },
     { enableHighAccuracy: true, timeout: 10000 }
   );
 }
@@ -868,7 +920,7 @@ function openAddExpenseModal() {
     e.preventDefault();
     const fd = new FormData(e.target);
     const splitWith = fd.getAll("splitWith");
-    if (splitWith.length === 0) { toast("Pick at least one person to split with.", "error"); return; }
+    if (splitWith.length === 0) { toast("Pick at least one person to split.", "error"); return; }
     db.push("expenses", { label: (fd.get("label") || "").trim(), amount: parseFloat(fd.get("amount")), payer: fd.get("payer"), splitWith, ts: Date.now(), })
       .then(() => { toast("Expense logged 💸", "success"); closeModal(); });
   });
@@ -878,7 +930,7 @@ document.getElementById("add-expense-btn").addEventListener("click", () => { if 
 function renderPolls() {
   const list = Object.entries(state.polls).map(([id, p]) => ({ id, ...p })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
   const el = document.getElementById("poll-list");
-  if (list.length === 0) { el.innerHTML = `<p class="text-sm text-base-500 text-center py-3">No polls yet — start one to settle a group debate.</p>`; return; }
+  if (list.length === 0) { el.innerHTML = `<p class="text-sm text-base-500 text-center py-3">No polls yet.</p>`; return; }
   el.innerHTML = list.map(poll => {
     const votes = poll.votes || {}; const totalVotes = Object.keys(votes).length; const myVote = state.me ? votes[state.me] : null;
     const optionsHtml = poll.options.map((opt, i) => {
@@ -909,10 +961,9 @@ function openAddPollModal() {
     <div class="p-5">
       <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">New Poll</h2>
       <form id="poll-form" class="flex flex-col gap-3">
-        <div><label class="text-xs font-mono text-base-400 mb-1 block">Question *</label><input required name="question" type="text" placeholder="Should we go to Tiger Hill tomorrow?" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Question *</label><input required name="question" type="text" placeholder="Tiger Hill tomorrow?" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
         <div><label class="text-xs font-mono text-base-400 mb-1 block">Option A *</label><input required name="optA" type="text" placeholder="Yes" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
         <div><label class="text-xs font-mono text-base-400 mb-1 block">Option B *</label><input required name="optB" type="text" placeholder="No" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
-        <div><label class="text-xs font-mono text-base-400 mb-1 block">Option C <span class="text-base-500">(optional)</span></label><input name="optC" type="text" placeholder="Let's vote on it" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
         <button type="submit" class="mt-1 w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">Start Poll</button>
       </form>
     </div>
@@ -920,9 +971,9 @@ function openAddPollModal() {
   root.querySelector("#poll-form").addEventListener("submit", (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const options = [fd.get("optA"), fd.get("optB"), fd.get("optC")].map(s => (s || "").trim()).filter(Boolean);
+    const options = [fd.get("optA"), fd.get("optB")].map(s => (s || "").trim()).filter(Boolean);
     db.push("polls", { question: (fd.get("question") || "").trim(), options, votes: {}, createdBy: state.me || "Someone", ts: Date.now(), })
-      .then(() => { toast("Poll created — go vote! 🗳️", "success"); closeModal(); });
+      .then(() => { toast("Poll created! 🗳️", "success"); closeModal(); });
   });
 }
 document.getElementById("add-poll-btn").addEventListener("click", () => { if (!state.me) { promptForIdentity(true); return; } openAddPollModal(); });
@@ -945,7 +996,7 @@ function openAddNoteModal() {
     <div class="p-5">
       <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">Pin a Note</h2>
       <form id="note-form" class="flex flex-col gap-3">
-        <textarea required name="text" rows="3" maxlength="180" placeholder="Driver arriving at 8:00 AM sharp!" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500 resize-none"></textarea>
+        <textarea required name="text" rows="3" maxlength="180" placeholder="Driver arriving at 8!" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500 resize-none"></textarea>
         <button type="submit" class="w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">Pin Note</button>
       </form>
     </div>
@@ -953,7 +1004,7 @@ function openAddNoteModal() {
   root.querySelector("#note-form").addEventListener("submit", (e) => {
     e.preventDefault();
     db.push("notes", { text: (new FormData(e.target).get("text") || "").trim(), author: state.me || "Someone", ts: Date.now() })
-      .then(() => { toast("Note pinned to the corkboard 📌", "success"); closeModal(); });
+      .then(() => { toast("Note pinned! 📌", "success"); closeModal(); });
   });
 }
 document.getElementById("add-note-btn").addEventListener("click", () => { if (!state.me) { promptForIdentity(true); return; } openAddNoteModal(); });
@@ -1008,7 +1059,7 @@ async function loadWeather() {
       const icon = WMO_ICONS[cur.weather_code] ?? "🌡️";
       return `<div class="bg-base-800 border border-base-700 rounded-xl p-3"><p class="text-xs font-mono text-base-400">${h.name}</p><div class="flex items-center justify-between mt-1"><span class="text-2xl">${icon}</span><span class="font-display font-bold text-lg text-base-50">${Math.round(cur.temperature_2m)}°C</span></div>${cur.precipitation > 0 ? `<p class="text-[11px] text-pine-300 mt-1 font-mono">${cur.precipitation}mm rain</p>` : `<p class="text-[11px] text-base-500 mt-1 font-mono">no rain</p>`}</div>`;
     }).join("");
-  } catch (e) { grid.innerHTML = `<p class="col-span-2 text-sm text-base-500 text-center py-2">Couldn't load weather — check connection.</p>`; }
+  } catch (e) { grid.innerHTML = `<p class="col-span-2 text-sm text-base-500 text-center py-2">Couldn't load weather.</p>`; }
 }
 document.getElementById("weather-refresh").addEventListener("click", loadWeather);
 
@@ -1022,10 +1073,6 @@ function renderSos() {
   `).join("");
 }
 
-function setupPwa() {
-  // PWA stub disabled for local file viewing
-}
-
 function seedPlacesObject() { 
   const obj = {}; 
   SEED_PLACES.forEach(p => { obj[p.id] = p; }); 
@@ -1036,7 +1083,7 @@ function seedPackingObject() { const obj = {}; SEED_PACKING.forEach((name, i) =>
 
 function initApp() {
   document.getElementById("album-link").setAttribute("href", SHARED_ALBUM_URL);
-  promptForIdentity(); renderFilterChips(); renderSos(); loadWeather(); setupPwa(); initMap();
+  promptForIdentity(); renderFilterChips(); renderSos(); loadWeather(); initMap();
 
   db.seedIfEmpty("places", seedPlacesObject()); db.seedIfEmpty("packing", seedPackingObject());
 
