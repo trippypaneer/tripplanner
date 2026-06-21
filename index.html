@@ -267,6 +267,18 @@
 
 <script>
 // ==========================================
+// 0. GLOBAL SAFETY NET
+// Surfaces any otherwise-silent failure (blocked CDN script, etc.)
+// instead of leaving the user with a blank, unresponsive page.
+// ==========================================
+window.addEventListener("error", (e) => {
+  console.error("Uncaught error:", e.error || e.message);
+});
+window.addEventListener("unhandledrejection", (e) => {
+  console.error("Unhandled promise rejection:", e.reason);
+});
+
+// ==========================================
 // 1. YOUR FIREBASE CONFIGURATION
 // ==========================================
 const FIREBASE_CONFIG = {
@@ -387,8 +399,14 @@ const db = (() => {
   }
 
   if (FIREBASE_ENABLED) {
-    try { fbApp = firebase.initializeApp(FIREBASE_CONFIG); fbRoot = firebase.database(); } 
-    catch (e) { console.error("Firebase init failed"); }
+    try {
+      if (typeof firebase === "undefined") {
+        console.warn("Firebase SDK didn't load (blocked script or offline) — falling back to local-only mode.");
+      } else {
+        fbApp = firebase.initializeApp(FIREBASE_CONFIG); fbRoot = firebase.database();
+      }
+    }
+    catch (e) { console.error("Firebase init failed — falling back to local-only mode:", e); fbApp = null; fbRoot = null; }
   }
 
   return {
@@ -537,12 +555,8 @@ function switchView(view) {
   document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
   document.getElementById(`view-${view}`).classList.add("active");
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === view));
-  
-  // FIX: Wait 350ms for the tab fade animation to completely finish before drawing the map
-  if (view === "map" && state.map) { 
-    setTimeout(() => {
-      state.map.invalidateSize();
-    }, 350); 
+  if (view === "map" && state.map) {
+    setTimeout(() => { state.map.invalidateSize(); syncMapMarkers(); }, 60);
   }
 }
 document.querySelectorAll(".nav-btn").forEach(btn => { btn.addEventListener("click", () => switchView(btn.dataset.view)); });
@@ -765,10 +779,22 @@ document.getElementById("fab-add").addEventListener("click", () => {
 });
 
 function initMap() {
+  if (typeof L === "undefined") {
+    console.error("Leaflet failed to load — map disabled.");
+    const mapEl = document.getElementById("leaflet-map");
+    if (mapEl) mapEl.innerHTML = `<div class="w-full h-full flex items-center justify-center text-center px-6"><p class="text-sm text-base-400">Map couldn't load. Check your internet connection and reload the page.</p></div>`;
+    return;
+  }
   state.map = L.map("leaflet-map", { zoomControl: true, attributionControl: true }).setView(MAP_CENTER, MAP_DEFAULT_ZOOM);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(state.map);
+  // Container starts hidden (view-panel display:none), so Leaflet measures 0x0 on init.
+  // Force a re-measure on the next frames + after layout settles.
+  requestAnimationFrame(() => state.map.invalidateSize());
+  setTimeout(() => state.map && state.map.invalidateSize(), 250);
+  setTimeout(() => state.map && state.map.invalidateSize(), 800);
+  window.addEventListener("resize", () => state.map && state.map.invalidateSize());
 }
 
 function pinDivIcon(visited) {
@@ -1063,47 +1089,78 @@ document.getElementById("weather-refresh").addEventListener("click", loadWeather
 
 function setupPwa() {}
 
+function safeRun(label, fn) {
+  try { fn(); } catch (e) { console.error(`[init] "${label}" failed:`, e); showStartupWarning(label, e); }
+}
+
+let startupWarnings = [];
+function showStartupWarning(label, err) {
+  startupWarnings.push(label);
+  let banner = document.getElementById("startup-warning");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "startup-warning";
+    banner.className = "fixed left-0 right-0 z-[300] mx-auto max-w-md px-4";
+    banner.style.top = "env(safe-area-inset-top, 0px)";
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = `
+    <div class="mt-2 bg-clay-600/95 border border-clay-400 text-base-50 text-xs rounded-xl px-3.5 py-2.5 shadow-float">
+      <p class="font-semibold mb-0.5">Some features couldn't load: ${startupWarnings.join(", ")}</p>
+      <p class="text-clay-100/90">This is usually a blocked script (ad-blocker / firewall / offline). Try reloading, or check your connection.</p>
+    </div>`;
+}
+
 // ==========================================
 // THE FIX: PRE-LOAD EVERYTHING INSTANTLY
+// Each step is isolated so one failure (e.g. map or Firebase)
+// can never block the rest of the app from working.
 // ==========================================
 function initApp() {
-  document.getElementById("album-link").setAttribute("href", SHARED_ALBUM_URL);
-  
-  // 1. Force the UI to draw the seed data instantly
+  safeRun("photo album link", () => {
+    document.getElementById("album-link").setAttribute("href", SHARED_ALBUM_URL);
+  });
+
+  // 1. Force the UI to draw the seed data instantly — this never depends on the network.
   state.places = seedPlacesObject();
   state.packing = seedPackingObject();
-  
-  promptForIdentity(); 
-  renderFilterChips(); 
-  renderSos(); 
-  loadWeather(); 
-  setupPwa(); 
-  initMap();
+
+  safeRun("identity prompt", () => promptForIdentity());
+  safeRun("filter chips", () => renderFilterChips());
+  safeRun("emergency contacts", () => renderSos());
+  safeRun("weather", () => loadWeather());
+  safeRun("pwa setup", () => setupPwa());
+  safeRun("map", () => initMap());
 
   // 2. Actually render the feed and map pins before Firebase even thinks about connecting
-  renderFeed();
-  syncMapMarkers();
+  safeRun("feed", () => renderFeed());
+  safeRun("map markers", () => syncMapMarkers());
 
-  // 3. Connect to Firebase in the background
-  db.seedIfEmpty("places", seedPlacesObject()); 
-  db.seedIfEmpty("packing", seedPackingObject());
-
-  db.watch("places", (data) => { 
-    const placesObj = data || {}; 
-    Object.keys(placesObj).forEach(key => { if (placesObj[key]) placesObj[key].id = key; });
-    state.places = placesObj; 
-    renderFeed(); 
-    syncMapMarkers(); 
+  // 3. Connect to Firebase in the background — guarded so a missing/blocked
+  //    Firebase SDK or locked database rules can't take down the rest of the app.
+  safeRun("live sync (places)", () => {
+    db.seedIfEmpty("places", seedPlacesObject());
+    db.watch("places", (data) => {
+      const placesObj = (data && Object.keys(data).length > 0) ? data : seedPlacesObject();
+      Object.keys(placesObj).forEach(key => { if (placesObj[key]) placesObj[key].id = key; });
+      state.places = placesObj;
+      renderFeed();
+      syncMapMarkers();
+    });
   });
-  
-  db.watch("expenses", (data) => { state.expenses = data || {}; renderExpenses(); });
-  db.watch("polls", (data) => { state.polls = data || {}; renderPolls(); });
-  db.watch("notes", (data) => { state.notes = data || {}; renderNotes(); });
-  db.watch("packing", (data) => { state.packing = data || {}; renderPacking(); });
+  safeRun("live sync (packing)", () => {
+    db.seedIfEmpty("packing", seedPackingObject());
+    db.watch("packing", (data) => { state.packing = (data && Object.keys(data).length > 0) ? data : seedPackingObject(); renderPacking(); });
+  });
+  safeRun("live sync (expenses)", () => db.watch("expenses", (data) => { state.expenses = data || {}; renderExpenses(); }));
+  safeRun("live sync (polls)", () => db.watch("polls", (data) => { state.polls = data || {}; renderPolls(); }));
+  safeRun("live sync (notes)", () => db.watch("notes", (data) => { state.notes = data || {}; renderNotes(); }));
 
-  if (navigator.permissions && navigator.permissions.query) {
-    navigator.permissions.query({ name: "geolocation" }).then(status => { if (status.state === "granted") locateMe(); }).catch(() => {});
-  }
+  safeRun("geolocation", () => {
+    if (navigator.permissions && navigator.permissions.query) {
+      navigator.permissions.query({ name: "geolocation" }).then(status => { if (status.state === "granted") locateMe(); }).catch(() => {});
+    }
+  });
 }
 
 document.addEventListener("DOMContentLoaded", initApp);
