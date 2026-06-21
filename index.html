@@ -1,0 +1,1058 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+<title>Hill Trail · Siliguri & Hills Trip</title>
+<meta name="description" content="Shared trip companion for the Siliguri, Darjeeling & Dooars hill circuit.">
+<meta name="theme-color" content="#171712">
+
+<!-- ===================== PWA MANIFEST ===================== -->
+<link rel="manifest" id="manifest-link">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23171712'/%3E%3Cpath d='M10 70 L35 35 L50 55 L65 30 L92 70 Z' fill='%23E8A33D'/%3E%3Ccircle cx='72' cy='24' r='9' fill='%2358A893'/%3E%3C/svg%3E">
+
+<!-- ===================== FONTS ===================== -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- ===================== TAILWIND ===================== -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- ===================== LEAFLET.JS ===================== -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- ===================== FIREBASE ===================== -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
+
+<script>
+  tailwind.config = {
+    darkMode: 'class',
+    theme: {
+      extend: {
+        colors: {
+          base: {
+            950: '#100F0C', 900: '#171712', 850: '#1D1C16', 800: '#262519',
+            700: '#34321F', 600: '#48452C', 500: '#605C3E', 400: '#86815B',
+            300: '#AFA988', 200: '#D8D3BC', 100: '#EFEBDD', 50:  '#FAF8F0',
+          },
+          marigold: { 400: '#F0B85C', 500: '#E8A33D', 600: '#CF8A24', 700: '#A86E1A' },
+          pine: { 300: '#8FC9B8', 400: '#6FB39E', 500: '#58A893', 600: '#3F8772', 700: '#2E6657' },
+          clay: { 400: '#E08769', 500: '#D06B49', 600: '#B0532F' },
+        },
+        fontFamily: {
+          display: ['"Archivo Expanded"', 'sans-serif'],
+          body: ['"Archivo"', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        },
+        boxShadow: {
+          'card': '0 1px 0 0 rgba(232,163,61,0.06), 0 8px 24px -8px rgba(0,0,0,0.55)',
+          'float': '0 12px 32px -8px rgba(0,0,0,0.65)',
+        },
+      }
+    }
+  }
+</script>
+
+<style>
+  :root { color-scheme: dark; }
+  html, body { background: #100F0C; overscroll-behavior-y: none; }
+  body { font-family: 'Archivo', sans-serif; -webkit-tap-highlight-color: transparent; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #34321F; border-radius: 8px; }
+
+  .trail-rail {
+    position: absolute; left: 27px; top: 0; bottom: 0; width: 2px;
+    background-image: repeating-linear-gradient(to bottom, #48452C 0, #48452C 6px, transparent 6px, transparent 13px);
+    z-index: 0;
+  }
+  .trail-node { box-shadow: 0 0 0 4px #100F0C, 0 0 0 5px #48452C; }
+  .trail-node.is-visited { box-shadow: 0 0 0 4px #100F0C, 0 0 0 5px #58A893; }
+
+  .view-panel { display: none; }
+  .view-panel.active { display: block; animation: fadeUp 0.32s ease both; }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .nav-btn .nav-dot { opacity: 0; transform: scale(0.4); transition: all .22s cubic-bezier(.34,1.56,.64,1); }
+  .nav-btn.active .nav-dot { opacity: 1; transform: scale(1); }
+  .nav-btn.active .nav-label { color: #E8A33D; }
+  .nav-btn.active .nav-icon { color: #E8A33D; transform: translateY(-1px); }
+  .nav-btn .nav-icon { transition: all .22s cubic-bezier(.34,1.56,.64,1); }
+
+  .visited-btn { transition: background-color .25s ease, color .25s ease, border-color .25s ease, transform .15s ease; }
+  .visited-btn:active { transform: scale(0.96); }
+  .visited-pop { animation: pop .4s cubic-bezier(.34,1.56,.64,1); }
+  @keyframes pop { 0% { transform: scale(1); } 35% { transform: scale(1.14); } 100% { transform: scale(1); } }
+
+  .modal-backdrop { backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .modal-sheet { animation: sheetUp .28s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes sheetUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+  .gps-pulse { animation: gpsPulse 2s ease-out infinite; }
+  @keyframes gpsPulse { 0% { transform: scale(0.6); opacity: 0.9; } 70% { transform: scale(2.6); opacity: 0; } 100% { transform: scale(2.6); opacity: 0; } }
+
+  .leaflet-popup-content-wrapper { background: #1D1C16; color: #EFEBDD; border-radius: 14px; box-shadow: 0 12px 32px -8px rgba(0,0,0,0.7); }
+  .leaflet-popup-tip { background: #1D1C16; }
+  .leaflet-popup-content { margin: 0; width: 220px !important; }
+  .leaflet-container a.leaflet-popup-close-button { color: #AFA988; }
+  .leaflet-control-zoom a { background: #1D1C16 !important; color: #EFEBDD !important; border-color: #34321F !important; }
+  .leaflet-control-attribution { background: rgba(23,23,18,0.75) !important; color: #86815B !important; }
+  .leaflet-control-attribution a { color: #AFA988 !important; }
+
+  .marker-pin {
+    width: 30px; height: 30px; border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg); display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: 2px solid #100F0C;
+  }
+  .marker-pin .marker-pin-icon { transform: rotate(45deg); }
+  .marker-pulse-dot {
+    width: 18px; height: 18px; border-radius: 50%; background: #4FA8E8; border: 3px solid #fff;
+    box-shadow: 0 0 0 3px rgba(79,168,232,0.35);
+  }
+
+  .tag-chip { font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em; }
+  .star-row svg { display: inline-block; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  #toast-stack { position: fixed; top: env(safe-area-inset-top, 0px); left: 0; right: 0; z-index: 80; display: flex; flex-direction: column; align-items: center; pointer-events: none; padding-top: 10px; gap: 8px; }
+  .toast-item { animation: toastIn .3s cubic-bezier(.22,1,.36,1) both, toastOut .3s ease 2.7s forwards; }
+  @keyframes toastIn { from { transform: translateY(-16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  @keyframes toastOut { to { transform: translateY(-16px); opacity: 0; } }
+
+  .safe-top { padding-top: env(safe-area-inset-top, 0px); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+</style>
+</head>
+<body class="bg-base-900 text-base-100 font-body min-h-screen">
+
+<div id="app" class="max-w-md mx-auto min-h-screen bg-base-900 relative flex flex-col">
+  <header class="safe-top sticky top-0 z-30 bg-base-900/90 backdrop-blur-md border-b border-base-700/60">
+    <div class="flex items-center justify-between px-4 pt-4 pb-3">
+      <div>
+        <p class="text-[11px] tracking-[0.18em] uppercase text-marigold-500 font-mono">06 travelers · live trip</p>
+        <h1 class="font-display font-extrabold text-xl leading-tight text-base-50 -mt-0.5">Siliguri & the Hills</h1>
+      </div>
+      <button id="open-profile-btn" class="w-10 h-10 rounded-full bg-base-800 border border-base-700 flex items-center justify-center text-marigold-400 font-display font-bold active:scale-95 transition" title="Switch your name">
+        <span id="header-avatar-initial">?</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main-content" class="flex-1 relative">
+    <section id="view-feed" class="view-panel active">
+      <div class="sticky top-[68px] z-20 bg-base-900/95 backdrop-blur-md border-b border-base-700/50 pt-3 pb-2.5">
+        <div id="filter-chips" class="flex gap-2 overflow-x-auto no-scrollbar px-4"></div>
+      </div>
+      <div id="gps-hint" class="mx-4 mt-3 hidden items-center gap-2 text-[11px] font-mono text-base-400">
+        <span class="w-1.5 h-1.5 rounded-full bg-pine-400 animate-pulse"></span>
+        <span>Live distances on · tap a card for directions</span>
+      </div>
+      <div class="relative px-4 pt-4 pb-28">
+        <div class="trail-rail"></div>
+        <div id="feed-list" class="relative z-10 flex flex-col gap-4"></div>
+        <div id="feed-empty" class="hidden text-center py-16 px-6">
+          <p class="font-display font-bold text-base-300 text-lg">No spots match yet</p>
+          <p class="text-sm text-base-400 mt-1">Try a different filter, or add the first one with the + button.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-map" class="view-panel">
+      <div class="relative w-full" style="height: calc(100vh - 132px);">
+        <div id="leaflet-map" class="w-full h-full relative z-0"></div>
+        <button id="locate-btn" class="absolute z-[500] right-3 bottom-3 w-12 h-12 rounded-2xl bg-base-850 border border-base-700 shadow-float flex items-center justify-center active:scale-90 transition" title="Find my location">
+          <svg id="locate-icon" class="w-5 h-5 text-marigold-400" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="absolute z-[500] left-3 top-3 bg-base-850/95 backdrop-blur border border-base-700 rounded-xl px-3 py-2 flex flex-col gap-1.5 text-[11px] font-mono">
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-clay-500"></span>Unvisited</div>
+          <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-pine-400"></span>Visited</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-tools" class="view-panel">
+      <div class="px-4 pt-4 pb-28 flex flex-col gap-5">
+        <div>
+          <p class="text-[11px] tracking-[0.18em] uppercase text-marigold-500 font-mono mb-0.5">Dashboard</p>
+          <h2 class="font-display font-extrabold text-2xl text-base-50">Trip Tools</h2>
+        </div>
+        <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-display font-bold text-base-50 text-sm tracking-wide">MOUNTAIN WEATHER</h3>
+            <button id="weather-refresh" class="text-[11px] font-mono text-marigold-400 active:scale-95 transition">↻ refresh</button>
+          </div>
+          <div id="weather-grid" class="grid grid-cols-2 gap-2.5"></div>
+        </div>
+        <div class="bg-clay-600/15 border border-clay-600/40 rounded-2xl p-4 shadow-card">
+          <h3 class="font-display font-bold text-clay-400 text-sm tracking-wide mb-3 flex items-center gap-1.5">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 21h20L12 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            EMERGENCY & DRIVER
+          </h3>
+          <div id="sos-list" class="flex flex-col gap-2"></div>
+        </div>
+        <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-display font-bold text-base-50 text-sm tracking-wide">GROUP EXPENSES</h3>
+            <button id="add-expense-btn" class="text-[11px] font-mono text-marigold-400 active:scale-95 transition">+ log expense</button>
+          </div>
+          <div id="expense-list" class="flex flex-col gap-2 mb-3"></div>
+          <div class="border-t border-base-700 pt-3">
+            <p class="text-[11px] font-mono uppercase text-base-400 mb-2">Who owes whom</p>
+            <div id="settle-list" class="flex flex-col gap-1.5"></div>
+          </div>
+        </div>
+        <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-display font-bold text-base-50 text-sm tracking-wide">GROUP POLLS</h3>
+            <button id="add-poll-btn" class="text-[11px] font-mono text-marigold-400 active:scale-95 transition">+ new poll</button>
+          </div>
+          <div id="poll-list" class="flex flex-col gap-3"></div>
+        </div>
+        <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-display font-bold text-base-50 text-sm tracking-wide">CORKBOARD NOTES</h3>
+            <button id="add-note-btn" class="text-[11px] font-mono text-marigold-400 active:scale-95 transition">+ pin note</button>
+          </div>
+          <div id="notes-grid" class="grid grid-cols-2 gap-2.5"></div>
+        </div>
+        <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
+          <h3 class="font-display font-bold text-base-50 text-sm tracking-wide mb-3">PACKING CHECKLIST</h3>
+          <div id="packing-list" class="flex flex-col gap-2 mb-3"></div>
+          <button id="add-packing-btn" class="w-full text-center text-[11px] font-mono text-marigold-400 border border-dashed border-base-600 rounded-lg py-2 active:scale-[0.98] transition">+ add item</button>
+        </div>
+        <a id="album-link" href="#" target="_blank" rel="noopener" class="block bg-gradient-to-br from-marigold-600 to-clay-600 rounded-2xl p-4 shadow-card active:scale-[0.98] transition">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-display font-bold text-base-950 text-sm tracking-wide">SHARED PHOTO ALBUM</h3>
+              <p class="text-base-950/70 text-xs mt-0.5">Open the collaborative Google Photos album</p>
+            </div>
+            <svg class="w-6 h-6 text-base-950" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </a>
+      </div>
+    </section>
+  </main>
+
+  <button id="fab-add" class="fixed z-40 right-4 bottom-24 max-w-md w-14 h-14 rounded-2xl bg-marigold-500 text-base-950 shadow-float flex items-center justify-center active:scale-90 transition" title="Add a place">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+  </button>
+
+  <nav class="safe-bottom sticky bottom-0 z-30 bg-base-850/95 backdrop-blur-md border-t border-base-700/60">
+    <div class="grid grid-cols-3 px-2 pt-2 pb-1.5">
+      <button data-view="feed" class="nav-btn active flex flex-col items-center gap-1 py-1.5 rounded-xl active:scale-95 transition">
+        <svg class="nav-icon w-5 h-5 text-base-400" viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        <span class="nav-label text-[10.5px] font-semibold text-base-400 tracking-wide">Feed</span>
+        <span class="nav-dot w-1 h-1 rounded-full bg-marigold-500"></span>
+      </button>
+      <button data-view="map" class="nav-btn flex flex-col items-center gap-1 py-1.5 rounded-xl active:scale-95 transition">
+        <svg class="nav-icon w-5 h-5 text-base-400" viewBox="0 0 24 24" fill="none"><path d="M9 20l-6-3V4l6 3 6-3 6 3v13l-6-3-6 3zm0 0V7m6 13V7" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <span class="nav-label text-[10.5px] font-semibold text-base-400 tracking-wide">Map</span>
+        <span class="nav-dot w-1 h-1 rounded-full bg-marigold-500"></span>
+      </button>
+      <button data-view="tools" class="nav-btn flex flex-col items-center gap-1 py-1.5 rounded-xl active:scale-95 transition">
+        <svg class="nav-icon w-5 h-5 text-base-400" viewBox="0 0 24 24" fill="none"><path d="M14.7 6.3a4 4 0 01-5.4 5.4L4 17l1 1 5.3-5.3a4 4 0 015.4-5.4l-2.1 2.1.7 2.1 2.1.7 2.1-2.1z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <span class="nav-label text-[10.5px] font-semibold text-base-400 tracking-wide">Trip Tools</span>
+        <span class="nav-dot w-1 h-1 rounded-full bg-marigold-500"></span>
+      </button>
+    </div>
+  </nav>
+</div>
+
+<div id="toast-stack"></div>
+<div id="modal-root"></div>
+
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_API_KEY", authDomain: "YOUR_PROJECT.firebaseapp.com", databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId: "YOUR_PROJECT", storageBucket: "YOUR_PROJECT.appspot.com", messagingSenderId: "YOUR_SENDER_ID", appId: "YOUR_APP_ID"
+};
+const FIREBASE_ENABLED = false;
+const TRIP_MEMBERS = ["Chiku", "Shubhi", "Sanjay", "Rama", "Rakshpal", "Arvind"];
+const EMERGENCY_CONTACTS = [
+  { label: "Tour Driver", name: "Add driver's name", phone: "" },
+  { label: "Siliguri Police Control Room", name: "Siliguri PS Helpline", phone: "100" },
+  { label: "Darjeeling Police Helpline", name: "District Control Room", phone: "0354-2254422" },
+  { label: "National Highway Helpline", name: "NHAI", phone: "1033" },
+  { label: "Ambulance", name: "National Ambulance", phone: "108" },
+];
+
+const SHARED_ALBUM_URL = "https://photos.google.com";
+const MAP_CENTER = [26.95, 88.35];
+const MAP_DEFAULT_ZOOM = 10;
+const ALL_CATEGORIES = ["Pork/Beef Food", "Local Food", "Sightseeing", "Day Trip", "Nature", "Viewpoints", "Shopping", "Wildlife", "Monastery/Temple", "Chinese", "Tibetan"];
+
+const SEED_PLACES = [
+  { id: "p1-wokhouse", name: "The Wok House", region: "Siliguri · College Para", category: "Pork/Beef Food", tags: ["Pork/Beef Food", "Chinese"], rating: 4.5, description: "Located in College Para, this is a local favorite for incredibly good roast pork chilli and wok-tossed dishes.", lat: 26.7271, lng: 88.4275, image: "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p2-kunga", name: "Kunga Restaurant", region: "Darjeeling · Gandhi Road", category: "Pork/Beef Food", tags: ["Pork/Beef Food", "Tibetan"], rating: 4.8, description: "An absolute must-visit for authentic Tibetan beef gyathuk (noodle soup) and steamed pork momos.", lat: 27.0392, lng: 88.2627, image: "https://images.unsplash.com/photo-1496116218417-1a781b1c416c?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p3-moktans", name: "Moktan's", region: "Siliguri · Don Bosco More", category: "Pork/Beef Food", tags: ["Pork/Beef Food", "Local Food"], rating: 4.3, description: "Head to Don Bosco More for some of the juiciest pork dumplings in the city.", lat: 26.7360, lng: 88.4250, image: "https://images.unsplash.com/photo-1541529086526-db283c563270?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p4-keventers", name: "Keventer's", region: "Darjeeling · Mall Road", category: "Pork/Beef Food", tags: ["Pork/Beef Food", "Viewpoints"], rating: 4.6, description: "Sit on their open terrace overlooking the mountains and order the iconic meat platter—pork sausages, bacon, meatloaf, and salami.", lat: 27.0410, lng: 88.2660, image: "https://images.unsplash.com/photo-1551183053-bf91a1d81141?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p5-taiwah", name: "Taiwah Restaurant", region: "Siliguri · Pradhan Nagar", category: "Pork/Beef Food", tags: ["Pork/Beef Food", "Chinese"], rating: 4.4, description: "A legendary, old-school spot in town for traditional Chinese-style pork dishes.", lat: 26.7290, lng: 88.4210, image: "https://images.unsplash.com/photo-1585032226651-759b368d7246?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p6-panitanki", name: "Panitanki Border Dhabas", region: "Indo-Nepal Border", category: "Pork/Beef Food", tags: ["Pork/Beef Food", "Day Trip"], rating: 4.2, description: "Take a 45-minute drive to the Nepal border for authentic, cheap buff (buffalo) sukuti (dry meat) and pork sekuwa (barbeque).", lat: 26.8090, lng: 88.1790, image: "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p7-gompu", name: "Gompu's Hotel", region: "Kalimpong", category: "Pork/Beef Food", tags: ["Pork/Beef Food", "Local Food"], rating: 4.5, description: "Iconic for serving massive, perfectly spiced pork momos in the heart of Kalimpong.", lat: 27.0580, lng: 88.4680, image: "https://images.unsplash.com/photo-1626804475297-4160aece9aa4?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p8-indianpagoda", name: "Indian Pagoda", region: "Siliguri", category: "Pork/Beef Food", tags: ["Pork/Beef Food", "Chinese"], rating: 4.1, description: "A great, pocket-friendly spot for local Chinese-style pork and beef.", lat: 26.7160, lng: 88.4250, image: "https://images.unsplash.com/photo-1525755662778-989d0524087e?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p9-glenarys", name: "Glenary’s", region: "Darjeeling", category: "Pork/Beef Food", tags: ["Pork/Beef Food", "Local Food"], rating: 4.7, description: "Grab their beef steak and pork sausages in a classic colonial bakery setting.", lat: 27.0415, lng: 88.2655, image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p10-beefkebabs", name: "Zakaria Road Beef Kebabs", region: "Darjeeling", category: "Pork/Beef Food", tags: ["Pork/Beef Food", "Local Food"], rating: 4.4, description: "Explore the alleys near Anjuman Islamia/Zakaria road for fresh street-side beef kebabs and curries.", lat: 27.0400, lng: 88.2640, image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p11-gajoldobafish", name: "Gajoldoba Fish Fry", region: "Teesta Barrage", category: "Local Food", tags: ["Local Food", "Day Trip"], rating: 4.3, description: "Drive about an hour to the Teesta barrage to eat freshly caught, crispy fried Boroli fish.", lat: 26.8280, lng: 88.5740, image: "https://images.unsplash.com/photo-1580476262798-bddd9f4b7369?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p12-hongkongfood", name: "Hong Kong Market Street Food", region: "Siliguri", category: "Local Food", tags: ["Local Food", "Shopping"], rating: 4.2, description: "Dive into local street momos, thukpa, and shaphaley (meat-stuffed deep-fried bread).", lat: 26.7180, lng: 88.4310, image: "https://images.unsplash.com/photo-1555126634-ae231a4a9811?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p13-nepalithali", name: "Traditional Nepali Thali", region: "Kurseong", category: "Local Food", tags: ["Local Food", "Nature"], rating: 4.6, description: "Try authentic Nepali cuisine including Gundruk (fermented greens) and pork/chicken curry.", lat: 26.8810, lng: 88.2810, image: "https://images.unsplash.com/photo-1625220194771-7ebdea0b70b9?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p14-selroti", name: "Sel Roti & Aloo Dum", region: "Across the Hills", category: "Local Food", tags: ["Local Food"], rating: 4.5, description: "Eat this traditional sweet ring-shaped rice bread with spicy potato curry at local tea stalls across the hills.", lat: 26.8833, lng: 88.2833, image: "https://images.unsplash.com/photo-1601050690597-df0568f70950?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p15-margaretsdeck", name: "Margaret’s Deck Tea Lounge", region: "Kurseong", category: "Viewpoints", tags: ["Viewpoints", "Local Food"], rating: 4.8, description: "A premium Makaibari tea experience with scones and cakes on a deck overlooking a stunning valley.", lat: 26.8580, lng: 88.2860, image: "https://images.unsplash.com/photo-1564890369478-c89ca6d9cde9?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p16-kurseonglodge", name: "Kurseong Tourist Lodge", region: "Kurseong Highway", category: "Local Food", tags: ["Local Food", "Sightseeing"], rating: 4.1, description: "Stop by on the highway for their famous steaming momos and 'mountain man' soup.", lat: 26.8840, lng: 88.2840, image: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p17-churpitasting", name: "Churpi Tasting", region: "Darjeeling Mall", category: "Local Food", tags: ["Local Food"], rating: 4.0, description: "Try both the hard and soft varieties of this traditional Himalayan yak/cow milk cheese.", lat: 27.0420, lng: 88.2670, image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p18-kalimpongcheese", name: "Kalimpong Cheese & Lollipops", region: "Kalimpong", category: "Local Food", tags: ["Local Food", "Shopping"], rating: 4.6, description: "Buy a block of authentic Kalimpong cheese and Maclay's lollipops from local bakeries.", lat: 27.0600, lng: 88.4700, image: "https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p19-bhutiacuisine", name: "Bhutia Cuisine", region: "Kalimpong", category: "Local Food", tags: ["Local Food", "Pork/Beef Food"], rating: 4.4, description: "Try Ema Datshi (cheese and chili stew) and Phaksha Paa (pork with red chilies) at a local Bhutanese joint.", lat: 27.0610, lng: 88.4710, image: "https://images.unsplash.com/photo-1548943487-a2e4b43b5851?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p20-teatasting", name: "Darjeeling Tea Estate Tasting", region: "Makaibari / Dagapur", category: "Sightseeing", tags: ["Sightseeing", "Nature"], rating: 4.7, description: "Do a proper tea tasting session at a local estate like Makaibari or Dagapur.", lat: 26.8620, lng: 88.2610, image: "https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p21-bengalsafari", name: "Bengal Safari Park", region: "Siliguri Outskirts", category: "Wildlife", tags: ["Wildlife", "Sightseeing"], rating: 4.4, description: "Take a group safari to see the Royal Bengal Tiger and leopards right on the outskirts of town.", lat: 26.7820, lng: 88.4570, image: "https://images.unsplash.com/photo-1580414057403-c5f451f30e1c?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p22-coronation", name: "Coronation Bridge", region: "Sevoke", category: "Sightseeing", tags: ["Sightseeing", "Nature"], rating: 4.5, description: "Drive 45 minutes to this beautiful, pink British-era bridge crossing the massive gorge of the Teesta river.", lat: 26.8390, lng: 88.4540, image: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p23-hongkongshop", name: "Hong Kong Market Shopping", region: "Siliguri", category: "Shopping", tags: ["Shopping"], rating: 4.3, description: "Go bargain hunting for clothes, imported gadgets, and winter wear.", lat: 26.7180, lng: 88.4310, image: "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p24-salugara", name: "Salugara Monastery", region: "Siliguri", category: "Monastery/Temple", tags: ["Monastery/Temple", "Sightseeing"], rating: 4.4, description: "Visit this massive Buddhist stupa founded by the Tibetan Lama, Kalu Rinpoche.", lat: 26.7640, lng: 88.4480, image: "https://images.unsplash.com/photo-1548041539-7157c9172081?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p25-dudhia", name: "Dudhia Picnic", region: "Balason River", category: "Nature", tags: ["Nature", "Day Trip"], rating: 4.1, description: "Drive towards Mirik and stop at Dudhia along the Balason river for a relaxed riverside chill session.", lat: 26.8200, lng: 88.2500, image: "https://images.unsplash.com/photo-1433086966358-54859d0ed716?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p26-bidhan", name: "Bidhan Market", region: "Siliguri", category: "Shopping", tags: ["Shopping"], rating: 4.0, description: "Dive into the chaos for local spices, Churpi, and authentic Darjeeling tea packets to take home.", lat: 26.7190, lng: 88.4280, image: "https://images.unsplash.com/photo-1555126634-ae231a4a9811?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p27-iskcon", name: "ISKCON Temple Siliguri", region: "Siliguri", category: "Monastery/Temple", tags: ["Monastery/Temple"], rating: 4.6, description: "Experience the calm atmosphere, boat rides in the pond, and massive gardens.", lat: 26.7380, lng: 88.4290, image: "https://images.unsplash.com/photo-1561361513-2d000a50f0dc?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p28-mahananda", name: "Mahananda Wildlife Sanctuary", region: "Siliguri Outskirts", category: "Wildlife", tags: ["Wildlife", "Nature"], rating: 4.2, description: "Go for a short trek or jungle drive just 30 minutes from the city center.", lat: 26.7900, lng: 88.4000, image: "https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p29-rooftop", name: "Rooftop Cafe Hopping", region: "Siliguri", category: "Sightseeing", tags: ["Sightseeing", "Local Food"], rating: 4.3, description: "Hit up local Siliguri nightlife spots like Hashtag or Saluja for drinks and live music.", lat: 26.7250, lng: 88.4260, image: "https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p30-savin", name: "Savin Kingdom", region: "Siliguri", category: "Sightseeing", tags: ["Sightseeing"], rating: 4.0, description: "An amusement and water park built around a castle theme, perfect if the group wants a relaxed day out locally.", lat: 26.7320, lng: 88.4120, image: "https://images.unsplash.com/photo-1513151233558-d860c5398176?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p31-gajoldobaboat", name: "Gajoldoba Boating & Birds", region: "Gajoldoba", category: "Day Trip", tags: ["Day Trip", "Nature"], rating: 4.7, description: "Rent a local wooden boat on the Teesta barrage, surrounded by migratory birds with Mt. Kanchenjunga in the background.", lat: 26.8285, lng: 88.5745, image: "https://images.unsplash.com/photo-1500021804447-2ca2eaaaabeb?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p32-miriklake", name: "Mirik Lake", region: "Mirik", category: "Day Trip", tags: ["Day Trip", "Nature"], rating: 4.4, description: "Go boating on this scenic lake surrounded by dense pine forests and gardens.", lat: 26.8870, lng: 88.1830, image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p33-dowhill", name: "Kurseong Dow Hill", region: "Kurseong", category: "Nature", tags: ["Nature", "Sightseeing"], rating: 4.5, description: "Walk through the dense, eerie cedar forests and visit the supposedly haunted Victoria Boys School area.", lat: 26.8770, lng: 88.2780, image: "https://images.unsplash.com/photo-1448375240586-882707db888b?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p34-pashupati", name: "Pashupati Market", region: "Nepal Border", category: "Shopping", tags: ["Shopping", "Day Trip"], rating: 4.1, description: "Cross the border on foot near Mirik to shop for cheap imported jackets and electronics.", lat: 26.8920, lng: 88.1360, image: "https://images.unsplash.com/photo-1533900298318-6b8da08a523e?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p35-eaglescrag", name: "Eagle’s Crag Viewpoint", region: "Kurseong", category: "Viewpoints", tags: ["Viewpoints"], rating: 4.6, description: "Climb up for panoramic views of the Teesta river and the sprawling plains of Siliguri.", lat: 26.8830, lng: 88.2800, image: "https://images.unsplash.com/photo-1544735716-392fe2489ffa?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p36-bokar", name: "Bokar Monastery", region: "Mirik", category: "Monastery/Temple", tags: ["Monastery/Temple", "Viewpoints"], rating: 4.8, description: "Visit this stunning, peaceful monastery located at the highest point in Mirik.", lat: 26.8910, lng: 88.1860, image: "https://images.unsplash.com/photo-1548041539-7157c9172081?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p37-gorumara", name: "Lataguri & Gorumara", region: "Dooars", category: "Wildlife", tags: ["Wildlife", "Day Trip"], rating: 4.5, description: "Take a gypsy safari through the Dooars forests to spot one-horned rhinos, bison, and elephants.", lat: 26.7580, lng: 88.7560, image: "https://images.unsplash.com/photo-1540822606540-101737be70d8?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p38-murti", name: "Murti River", region: "Dooars", category: "Nature", tags: ["Nature", "Day Trip"], rating: 4.4, description: "Dip your feet in the crystal clear, shallow Murti river. You can camp or have a group picnic here.", lat: 26.8400, lng: 88.8280, image: "https://images.unsplash.com/photo-1433086966358-54859d0ed716?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p39-samsing", name: "Samsing & Suntalekhola", region: "Dooars", category: "Nature", tags: ["Nature", "Viewpoints"], rating: 4.7, description: "Experience the lush green tea gardens, hanging bridges, and orange orchards of the Dooars region.", lat: 27.0040, lng: 88.8180, image: "https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p40-jhalong", name: "Jhalong & Bindu", region: "Dooars", category: "Day Trip", tags: ["Day Trip", "Nature"], rating: 4.5, description: "Visit the last village on the Indian side bordering Bhutan, built around the massive Jaldhaka river dam.", lat: 27.0980, lng: 88.8740, image: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p41-tigerhill", name: "Tiger Hill Sunrise", region: "Darjeeling", category: "Viewpoints", tags: ["Viewpoints", "Sightseeing"], rating: 4.8, description: "Wake up at 3 AM to catch the legendary sunrise turning Mt. Kanchenjunga gold.", lat: 27.0010, lng: 88.2530, image: "https://images.unsplash.com/photo-1544735716-392fe2489ffa?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p42-toytrain", name: "Darjeeling Toy Train", region: "Darjeeling to Ghoom", category: "Sightseeing", tags: ["Sightseeing"], rating: 4.6, description: "Take the Joy Ride from Darjeeling to Ghoom (the highest railway station in India) and back.", lat: 27.0340, lng: 88.2610, image: "https://images.unsplash.com/photo-1533230623157-190ab7b0b2e8?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p43-batasialoop", name: "Batasia Loop", region: "Darjeeling", category: "Sightseeing", tags: ["Sightseeing", "Viewpoints"], rating: 4.5, description: "Walk around this beautiful spiral railway track with a 360-degree view of the Himalayas.", lat: 27.0160, lng: 88.2480, image: "https://images.unsplash.com/photo-1626027171447-8cfb3d4fba73?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p44-hmi", name: "Mountaineering Institute", region: "Darjeeling", category: "Sightseeing", tags: ["Sightseeing"], rating: 4.7, description: "See the original Everest expedition gear of Tenzing Norgay and Edmund Hillary.", lat: 27.0580, lng: 88.2550, image: "https://images.unsplash.com/photo-1522345091465-b7fbb97b2d56?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p45-zoo", name: "Padmaja Naidu Zoo", region: "Darjeeling", category: "Wildlife", tags: ["Wildlife"], rating: 4.6, description: "Right next to HMI, spot rare high-altitude animals like red pandas and snow leopards.", lat: 27.0585, lng: 88.2540, image: "https://images.unsplash.com/photo-1534063267568-d6263f3ce5eb?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p46-mallroad", name: "Darjeeling Mall Road", region: "Darjeeling", category: "Sightseeing", tags: ["Sightseeing", "Shopping"], rating: 4.7, description: "Sip tea, rent a pony, and people-watch in the vibrant heart of Darjeeling.", lat: 27.0425, lng: 88.2665, image: "https://images.unsplash.com/photo-1596484552834-6a58f850e0a1?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p47-deolo", name: "Deolo Hill", region: "Kalimpong", category: "Viewpoints", tags: ["Viewpoints", "Nature"], rating: 4.6, description: "Go paragliding with your friends from the highest point in Kalimpong.", lat: 27.0860, lng: 88.4870, image: "https://images.unsplash.com/photo-1544735716-392fe2489ffa?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p48-morganhouse", name: "Morgan House", region: "Kalimpong", category: "Sightseeing", tags: ["Sightseeing"], rating: 4.4, description: "Visit this colonial-era British mansion (now a hotel) known for its creeping vines and haunted rumors.", lat: 27.0480, lng: 88.4630, image: "https://images.unsplash.com/photo-1518780664697-55e3ad937233?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p49-cactus", name: "Cactus Nursery", region: "Kalimpong", category: "Sightseeing", tags: ["Sightseeing", "Nature"], rating: 4.5, description: "Explore one of the largest and most bizarre collections of rare cacti and orchids in Asia.", lat: 27.0550, lng: 88.4800, image: "https://images.unsplash.com/photo-1459411552884-841db9b3cc2a?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null },
+  { id: "p50-phuentsholing", name: "Phuentsholing", region: "Bhutan Border", category: "Day Trip", tags: ["Day Trip", "Pork/Beef Food"], rating: 4.6, description: "Drive 3.5 hours to Jaigaon, cross the Bhutan gate without a visa, and eat authentic Bhutanese pork and beef dishes.", lat: 26.8630, lng: 89.3890, image: "https://images.unsplash.com/photo-1548943487-a2e4b43b5851?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null }
+];
+
+const SEED_PACKING = [
+  "First-Aid kit", "Power banks", "Multi-plugs / extension board", "Offline maps downloaded",
+  "Rain ponchos", "Torch / headlamp", "Portable speaker", "Power bank cables", "Snacks for the road", "Cash (small notes)"
+];
+
+const state = {
+  me: null, places: {}, expenses: {}, polls: {}, notes: {}, packing: {},
+  activeView: "feed", activeCategoryFilter: "All", unvisitedOnly: false,
+  userCoords: null, map: null, mapMarkers: {}, liveLocationMarker: null,
+};
+
+const db = (() => {
+  let fbApp = null, fbRoot = null;
+  const LOCAL_KEY = "hilltrail_local_db_v3"; // Updated key to force fresh start
+
+  function loadLocal() { try { const raw = localStorage.getItem(LOCAL_KEY); return raw ? JSON.parse(raw) : {}; } catch (e) { return {}; } }
+  function saveLocal(data) { try { localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); } catch (e) { } }
+  const localListeners = {};
+  function emitLocal(path) {
+    const data = loadLocal();
+    const node = path.split("/").filter(Boolean).reduce((acc, key) => (acc ? acc[key] : undefined), data) || {};
+    (localListeners[path] || []).forEach(cb => cb(node));
+  }
+
+  if (FIREBASE_ENABLED) {
+    try { fbApp = firebase.initializeApp(FIREBASE_CONFIG); fbRoot = firebase.database(); } 
+    catch (e) { console.error("Firebase init failed"); }
+  }
+
+  return {
+    isLive: () => !!fbRoot,
+    watch(path, cb) {
+      if (fbRoot) { fbRoot.ref(path).on("value", snap => cb(snap.val() || {})); } 
+      else { localListeners[path] = localListeners[path] || []; localListeners[path].push(cb); emitLocal(path); }
+    },
+    set(path, id, value) {
+      if (fbRoot) { return fbRoot.ref(`${path}/${id}`).set(value); } 
+      else { const data = loadLocal(); data[path] = data[path] || {}; data[path][id] = value; saveLocal(data); emitLocal(path); return Promise.resolve(); }
+    },
+    update(path, id, partial) {
+      if (fbRoot) { return fbRoot.ref(`${path}/${id}`).update(partial); } 
+      else { const data = loadLocal(); data[path] = data[path] || {}; data[path][id] = Object.assign({}, data[path][id] || {}, partial); saveLocal(data); emitLocal(path); return Promise.resolve(); }
+    },
+    push(path, value) {
+      const id = (fbRoot ? fbRoot.ref(path).push().key : null) || `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      return this.set(path, id, value).then(() => id);
+    },
+    remove(path, id) {
+      if (fbRoot) { return fbRoot.ref(`${path}/${id}`).remove(); } 
+      else { const data = loadLocal(); if (data[path]) delete data[path][id]; saveLocal(data); emitLocal(path); return Promise.resolve(); }
+    },
+    seedIfEmpty(path, seedObject) {
+      if (fbRoot) {
+        fbRoot.ref(path).once("value").then(snap => { if (!snap.exists() || Object.keys(snap.val() || {}).length === 0) { fbRoot.ref(path).set(seedObject); } });
+      } else {
+        const data = loadLocal();
+        if (!data[path] || Object.keys(data[path]).length === 0) { data[path] = seedObject; saveLocal(data); }
+        emitLocal(path);
+      }
+    },
+  };
+})();
+
+function toast(msg, tone = "default") {
+  const stack = document.getElementById("toast-stack");
+  const colors = { default: "bg-base-850 border-base-700 text-base-100", success: "bg-pine-700/90 border-pine-500 text-base-50", error: "bg-clay-600/90 border-clay-400 text-base-50" };
+  const el = document.createElement("div");
+  el.className = `toast-item pointer-events-auto max-w-[88%] border ${colors[tone] || colors.default} rounded-xl px-4 py-2.5 text-sm font-medium shadow-float`;
+  el.textContent = msg;
+  stack.appendChild(el);
+  setTimeout(() => el.remove(), 3100);
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function starSvg(filled) { return `<svg width="13" height="13" viewBox="0 0 24 24" fill="${filled ? '#E8A33D' : 'none'}" stroke="#E8A33D" stroke-width="1.6"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.7 7-6.3-3.9-6.3 3.9 1.7-7L2 9.2l7.1-.6L12 2z" stroke-linejoin="round"/></svg>`; }
+function starRow(rating) {
+  let html = '<span class="star-row inline-flex items-center gap-0.5">';
+  for (let i = 1; i <= 5; i++) html += starSvg(i <= Math.round(rating));
+  html += `</span><span class="text-[11px] font-mono text-base-400 ml-1">${rating.toFixed(1)}</span>`;
+  return html;
+}
+
+function openModal(innerHtml, { wide = false } = {}) {
+  const root = document.getElementById("modal-root");
+  root.innerHTML = `
+    <div id="modal-backdrop" class="modal-backdrop fixed inset-0 bg-black/60 z-[200] flex items-end sm:items-center justify-center">
+      <div class="modal-sheet relative w-full ${wide ? 'max-w-lg' : 'max-w-md'} max-h-[88vh] overflow-y-auto bg-base-850 border-t sm:border border-base-700 rounded-t-3xl sm:rounded-3xl shadow-float">
+        ${innerHtml}
+      </div>
+    </div>`;
+  document.getElementById("modal-backdrop").addEventListener("click", (e) => { if (e.target.id === "modal-backdrop") closeModal(); });
+  return root;
+}
+function closeModal() { document.getElementById("modal-root").innerHTML = ""; }
+
+const ME_KEY = "hilltrail_me";
+function getMe() { 
+  try { return localStorage.getItem(ME_KEY); } catch(e) { return state.me; } 
+}
+function setMe(name) { 
+  try { localStorage.setItem(ME_KEY, name); } catch(e) {} 
+  state.me = name; 
+  updateHeaderAvatar(); 
+}
+
+function updateHeaderAvatar() {
+  const el = document.getElementById("header-avatar-initial");
+  el.textContent = state.me ? state.me.charAt(0).toUpperCase() : "?";
+}
+
+function promptForIdentity(forceOpen = false) {
+  const existing = getMe();
+  if (existing && !forceOpen) { state.me = existing; updateHeaderAvatar(); return; }
+  const optionsHtml = TRIP_MEMBERS.map(n => `
+    <button data-name="${escapeHtml(n)}" class="identity-pick w-full flex items-center gap-3 bg-base-800 hover:bg-base-700 border border-base-700 rounded-xl px-4 py-3 active:scale-[0.98] transition">
+      <span class="w-9 h-9 rounded-full bg-marigold-500/15 text-marigold-400 font-display font-bold flex items-center justify-center">${n.charAt(0)}</span>
+      <span class="font-semibold text-base-50">${escapeHtml(n)}</span>
+    </button>`).join("");
+  const root = openModal(`
+    <div class="p-5">
+      <p class="text-[11px] tracking-[0.18em] uppercase text-marigold-500 font-mono mb-1">Welcome to the trip</p>
+      <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">Which one of you is this?</h2>
+      <div class="flex flex-col gap-2">${optionsHtml}</div>
+      <p class="text-xs text-base-500 mt-4">This just labels your "Visited" taps and expenses.</p>
+    </div>
+  `);
+  root.querySelectorAll(".identity-pick").forEach(btn => {
+    btn.addEventListener("click", () => {
+      setMe(btn.dataset.name); closeModal(); toast(`Welcome aboard, ${btn.dataset.name} 🏔️`, "success");
+    });
+  });
+}
+
+function switchView(view) {
+  state.activeView = view;
+  document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+  document.getElementById(`view-${view}`).classList.add("active");
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === view));
+  if (view === "map" && state.map) { setTimeout(() => state.map.invalidateSize(), 80); }
+}
+document.querySelectorAll(".nav-btn").forEach(btn => { btn.addEventListener("click", () => switchView(btn.dataset.view)); });
+document.getElementById("open-profile-btn").addEventListener("click", () => promptForIdentity(true));
+
+function renderFilterChips() {
+  const wrap = document.getElementById("filter-chips");
+  const cats = ["All", ...ALL_CATEGORIES];
+  wrap.innerHTML = cats.map(c => `
+    <button data-cat="${escapeHtml(c)}" class="filter-chip tag-chip shrink-0 text-[11px] px-3 py-1.5 rounded-full border transition ${state.activeCategoryFilter === c ? 'bg-marigold-500 border-marigold-500 text-base-950 font-semibold' : 'bg-base-800 border-base-700 text-base-300'}">${escapeHtml(c)}</button>
+  `).join("") + `<button id="unvisited-toggle" class="tag-chip shrink-0 text-[11px] px-3 py-1.5 rounded-full border transition ${state.unvisitedOnly ? 'bg-pine-500 border-pine-500 text-base-950 font-semibold' : 'bg-base-800 border-base-700 text-base-300'}">Unvisited Only</button>`;
+  
+  wrap.querySelectorAll(".filter-chip").forEach(btn => {
+    btn.addEventListener("click", () => { state.activeCategoryFilter = btn.dataset.cat; renderFilterChips(); renderFeed(); });
+  });
+  document.getElementById("unvisited-toggle").addEventListener("click", () => {
+    state.unvisitedOnly = !state.unvisitedOnly; renderFilterChips(); renderFeed();
+  });
+}
+
+function getFilteredPlaces() {
+  let list = Object.values(state.places).filter(Boolean); // Safely ignore nulls
+  if (state.activeCategoryFilter !== "All") {
+    list = list.filter(p => (p.tags || []).includes(state.activeCategoryFilter) || p.category === state.activeCategoryFilter);
+  }
+  if (state.unvisitedOnly) list = list.filter(p => !p.visited);
+  return list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+}
+
+function distanceLabel(place) {
+  if (!state.userCoords || place.lat == null || place.lng == null) return "";
+  const km = haversineKm(state.userCoords.lat, state.userCoords.lng, place.lat, place.lng);
+  return `<span class="inline-flex items-center gap-1 text-[11px] font-mono text-pine-300"><svg class="w-3 h-3" viewBox="0 0 24 24" fill="none"><path d="M12 21s7-7.2 7-12a7 7 0 10-14 0c0 4.8 7 12 7 12z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="9" r="2.2" stroke="currentColor" stroke-width="1.8"/></svg>${km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km'} away</span>`;
+}
+
+function placeCardHtml(place) {
+  const visited = !!place.visited;
+  return `
+  <article class="relative pl-9" data-place-id="${place.id}">
+    <span class="trail-node ${visited ? 'is-visited' : ''} absolute left-0 top-5 w-3.5 h-3.5 rounded-full ${visited ? 'bg-pine-400' : 'bg-base-600'} z-10"></span>
+    <div class="bg-base-850 border border-base-700 rounded-2xl overflow-hidden shadow-card">
+      <div class="relative h-36 w-full bg-base-800 cursor-pointer feed-card-open" data-id="${place.id}">
+        <img src="${escapeHtml(place.image || '')}" alt="${escapeHtml(place.name)}" class="w-full h-full object-cover" loading="lazy" onerror="this.style.display='none'">
+        <div class="absolute inset-0 bg-gradient-to-t from-base-950/85 via-transparent to-transparent"></div>
+        <div class="absolute left-3 bottom-2 right-3 flex items-end justify-between">
+          <div>
+            <h3 class="font-display font-bold text-base-50 text-base leading-tight drop-shadow">${escapeHtml(place.name)}</h3>
+            <p class="text-[11px] text-base-200/90 font-mono">${escapeHtml(place.region || "")}</p>
+          </div>
+        </div>
+      </div>
+      <div class="p-3.5">
+        <div class="flex items-center justify-between mb-2">
+          ${starRow(place.rating || 0)}
+          ${distanceLabel(place)}
+        </div>
+        <div class="flex flex-wrap gap-1.5 mb-2.5">
+          ${(place.tags || [place.category]).filter(Boolean).map(t => `<span class="tag-chip text-[10px] px-2 py-0.5 rounded-full bg-base-800 border border-base-700 text-base-300">${escapeHtml(t)}</span>`).join("")}
+        </div>
+        <p class="text-sm text-base-300 leading-snug mb-3 line-clamp-2">${escapeHtml(place.description || "")}</p>
+        <button class="visited-btn w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-semibold border ${visited ? 'bg-pine-500/15 border-pine-500 text-pine-300' : 'bg-base-800 border-base-600 text-base-200'}" data-id="${place.id}" data-visited-toggle="${place.id}">
+          ${visited ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> Visited ✅` : `<span class="w-2 h-2 rounded-full border-2 border-base-400"></span> Mark as Visited`}
+        </button>
+        ${visited && place.visitedBy ? `<p class="text-[11px] text-base-500 text-center mt-1.5 font-mono">marked by ${escapeHtml(place.visitedBy)}</p>` : ""}
+      </div>
+    </div>
+  </article>`;
+}
+
+function renderFeed() {
+  const listEl = document.getElementById("feed-list");
+  const emptyEl = document.getElementById("feed-empty");
+  const items = getFilteredPlaces();
+  if (items.length === 0) { listEl.innerHTML = ""; emptyEl.classList.remove("hidden"); } 
+  else { emptyEl.classList.add("hidden"); listEl.innerHTML = items.map(placeCardHtml).join(""); }
+  
+  listEl.querySelectorAll(".visited-btn").forEach(btn => { btn.addEventListener("click", (e) => { e.stopPropagation(); toggleVisited(btn.dataset.id); }); });
+  listEl.querySelectorAll(".feed-card-open").forEach(el => { el.addEventListener("click", () => openPlaceDetail(el.dataset.id)); });
+  
+  document.getElementById("gps-hint").classList.toggle("hidden", !state.userCoords);
+  if (state.userCoords) document.getElementById("gps-hint").classList.add("flex");
+}
+
+function toggleVisited(id) {
+  if (!state.me) { promptForIdentity(true); return; }
+  const place = state.places[id];
+  if (!place) return;
+  const nowVisited = !place.visited;
+  db.update("places", id, { visited: nowVisited, visitedBy: nowVisited ? state.me : null });
+  const btn = document.querySelector(`[data-visited-toggle="${CSS.escape(id)}"]`);
+  if (btn) btn.classList.add("visited-pop");
+  toast(nowVisited ? `Marked "${place.name}" as visited ✅` : `Unmarked "${place.name}"`, nowVisited ? "success" : "default");
+}
+
+function openPlaceDetail(id) {
+  const p = state.places[id];
+  if (!p) return;
+  
+  const mapsQueryUrl = "https://www.google.com/maps/search/?api=1&query=" + p.lat + "," + p.lng;
+  const searchPhotosUrl = "https://www.google.com/search?q=" + encodeURIComponent(p.name + " " + p.region);
+  
+  const root = openModal(`
+    <div>
+      <div class="relative h-48 w-full bg-base-800">
+        <img src="${escapeHtml(p.image || '')}" class="w-full h-full object-cover" onerror="this.style.display='none'">
+        <button id="modal-close-x" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-base-950/70 backdrop-blur flex items-center justify-center text-base-100">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+        <div class="absolute inset-0 bg-gradient-to-t from-base-950 via-transparent to-transparent"></div>
+        <div class="absolute left-4 bottom-3 right-4">
+          <h2 class="font-display font-extrabold text-2xl text-base-50">${escapeHtml(p.name)}</h2>
+          <p class="text-xs font-mono text-base-300">${escapeHtml(p.region || "")}</p>
+        </div>
+      </div>
+      <div class="p-5">
+        <div class="flex items-center justify-between mb-3">
+          ${starRow(p.rating || 0)}
+          ${distanceLabel(p)}
+        </div>
+        <div class="flex flex-wrap gap-1.5 mb-3">
+          ${(p.tags || [p.category]).filter(Boolean).map(t => `<span class="tag-chip text-[10px] px-2 py-0.5 rounded-full bg-base-800 border border-base-700 text-base-300">${escapeHtml(t)}</span>`).join("")}
+        </div>
+        <p class="text-sm text-base-200 leading-relaxed mb-5">${escapeHtml(p.description || "")}</p>
+
+        <div class="grid grid-cols-1 gap-2 mb-5">
+          <a href="${mapsQueryUrl}" target="_blank" rel="noopener" class="flex items-center justify-between bg-base-800 border border-base-700 rounded-xl px-4 py-3 active:scale-[0.98] transition">
+            <span class="text-sm font-semibold text-base-50">📍 Open in Google Maps</span>
+            <svg class="w-4 h-4 text-marigold-400" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+          <a href="${searchPhotosUrl}" target="_blank" rel="noopener" class="flex items-center justify-between bg-base-800 border border-base-700 rounded-xl px-4 py-3 active:scale-[0.98] transition">
+            <span class="text-sm font-semibold text-base-50">🔍 Search Google for real photos</span>
+            <svg class="w-4 h-4 text-marigold-400" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </div>
+
+        <button id="modal-visited-btn" data-id="${p.id}" class="visited-btn w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold border ${p.visited ? 'bg-pine-500/15 border-pine-500 text-pine-300' : 'bg-base-800 border-base-600 text-base-200'}">
+          ${p.visited ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> Visited ✅ ${p.visitedBy ? '· by ' + escapeHtml(p.visitedBy) : ''}` : `Mark as Visited`}
+        </button>
+      </div>
+    </div>
+  `, { wide: true });
+  root.querySelector("#modal-close-x").addEventListener("click", closeModal);
+  root.querySelector("#modal-visited-btn").addEventListener("click", () => { toggleVisited(p.id); closeModal(); });
+}
+
+function openAddPlaceModal() {
+  const catOptions = ALL_CATEGORIES.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+  const root = openModal(`
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-display font-extrabold text-xl text-base-50">Add a Place</h2>
+        <button id="ap-close" class="w-8 h-8 rounded-full bg-base-800 flex items-center justify-center text-base-300">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <form id="add-place-form" class="flex flex-col gap-3">
+        <div>
+          <label class="text-xs font-mono text-base-400 mb-1 block">Place name *</label>
+          <input required name="name" type="text" placeholder="e.g. Rock Garden" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+        </div>
+        <div>
+          <label class="text-xs font-mono text-base-400 mb-1 block">Region</label>
+          <input name="region" type="text" placeholder="e.g. Darjeeling" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+        </div>
+        <div>
+          <label class="text-xs font-mono text-base-400 mb-1 block">Category tag</label>
+          <select name="category" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">${catOptions}</select>
+        </div>
+        <div>
+          <label class="text-xs font-mono text-base-400 mb-1 block">Description</label>
+          <textarea name="description" rows="3" placeholder="What's this place about?" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500 resize-none"></textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-mono text-base-400 mb-1 block">Latitude</label>
+            <input name="lat" type="number" step="any" placeholder="27.041" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+          </div>
+          <div>
+            <label class="text-xs font-mono text-base-400 mb-1 block">Longitude</label>
+            <input name="lng" type="number" step="any" placeholder="88.266" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+          </div>
+        </div>
+        <div>
+          <label class="text-xs font-mono text-base-400 mb-1 block">Or paste a Google Maps link</label>
+          <input name="mapsLink" type="text" placeholder="https://www.google.com/maps..." class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+        </div>
+        <div>
+          <label class="text-xs font-mono text-base-400 mb-1 block">Image URL</label>
+          <input name="image" type="text" placeholder="https://..." class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+        </div>
+        <button type="submit" class="mt-1 w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">Add to Trip</button>
+      </form>
+    </div>
+  `, { wide: true });
+
+  root.querySelector("#ap-close").addEventListener("click", closeModal);
+  root.querySelector("#add-place-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    let lat = parseFloat(fd.get("lat"));
+    let lng = parseFloat(fd.get("lng"));
+    const link = (fd.get("mapsLink") || "").trim();
+    if ((isNaN(lat) || isNaN(lng)) && link) {
+      const m = link.match(/(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)/);
+      if (m) { lat = parseFloat(m[1]); lng = parseFloat(m[2]); }
+    }
+    const name = (fd.get("name") || "").trim();
+    if (!name) return;
+    const category = fd.get("category");
+    db.push("places", {
+      name, region: (fd.get("region") || "").trim(), category, tags: [category], rating: 0,
+      description: (fd.get("description") || "").trim(), lat: isNaN(lat) ? null : lat, lng: isNaN(lng) ? null : lng,
+      image: (fd.get("image") || "").trim(), website: "", social: link || "", visited: false, visitedBy: null, addedBy: state.me || "Someone",
+    }).then(() => { toast(`"${name}" added to the trip 🗺️`, "success"); closeModal(); });
+  });
+}
+document.getElementById("fab-add").addEventListener("click", () => {
+  if (!state.me) { promptForIdentity(true); return; }
+  openAddPlaceModal();
+});
+
+function initMap() {
+  state.map = L.map("leaflet-map", { zoomControl: true, attributionControl: true }).setView(MAP_CENTER, MAP_DEFAULT_ZOOM);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  }).addTo(state.map);
+}
+
+function pinDivIcon(visited) {
+  const color = visited ? "#58A893" : "#D06B49";
+  return L.divIcon({
+    className: "",
+    html: `<div class="marker-pin" style="background:${color}"><span class="marker-pin-icon"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 21h20L12 2z" fill="#100F0C"/></svg></span></div>`,
+    iconSize: [30, 30], iconAnchor: [15, 28], popupAnchor: [0, -26],
+  });
+}
+
+function popupHtml(place) {
+  return `
+    <div class="p-3">
+      <div class="h-20 w-full rounded-lg overflow-hidden bg-base-800 mb-2">
+        <img src="${escapeHtml(place.image || '')}" class="w-full h-full object-cover" onerror="this.style.display='none'">
+      </div>
+      <p class="font-display font-bold text-sm text-base-50 leading-tight">${escapeHtml(place.name)}</p>
+      <p class="text-[11px] text-base-400 font-mono mb-1.5">${escapeHtml(place.region || "")}</p>
+      <span class="inline-flex items-center gap-1 text-[11px] font-semibold ${place.visited ? 'text-pine-400' : 'text-clay-400'}">${place.visited ? '✅ Visited' : '● Unvisited'}</span>
+    </div>`;
+}
+
+function syncMapMarkers() {
+  if (!state.map) return;
+  const currentIds = new Set(Object.keys(state.places));
+  Object.keys(state.mapMarkers).forEach(id => {
+    if (!currentIds.has(id)) { state.map.removeLayer(state.mapMarkers[id]); delete state.mapMarkers[id]; }
+  });
+  Object.values(state.places).forEach(place => {
+    if (place.lat == null || place.lng == null) return;
+    if (state.mapMarkers[place.id]) {
+      state.mapMarkers[place.id].setLatLng([place.lat, place.lng]);
+      state.mapMarkers[place.id].setIcon(pinDivIcon(!!place.visited));
+      state.mapMarkers[place.id].setPopupContent(popupHtml(place));
+    } else {
+      const marker = L.marker([place.lat, place.lng], { icon: pinDivIcon(!!place.visited) }).addTo(state.map);
+      marker.bindPopup(popupHtml(place));
+      state.mapMarkers[place.id] = marker;
+    }
+  });
+}
+
+function locateMe() {
+  const icon = document.getElementById("locate-icon");
+  icon.classList.add("animate-spin");
+  if (!navigator.geolocation) { toast("Geolocation isn't available on this device.", "error"); icon.classList.remove("animate-spin"); return; }
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      icon.classList.remove("animate-spin");
+      const { latitude, longitude } = pos.coords;
+      state.userCoords = { lat: latitude, lng: longitude };
+      if (state.map) {
+        state.map.setView([latitude, longitude], 13);
+        if (state.liveLocationMarker) state.map.removeLayer(state.liveLocationMarker);
+        const dotIcon = L.divIcon({
+          className: "",
+          html: `<div class="relative w-5 h-5 flex items-center justify-center"><span class="gps-pulse absolute w-5 h-5 rounded-full bg-[#4FA8E8]"></span><span class="marker-pulse-dot relative"></span></div>`,
+          iconSize: [20, 20], iconAnchor: [10, 10],
+        });
+        state.liveLocationMarker = L.marker([latitude, longitude], { icon: dotIcon, zIndexOffset: 1000 }).addTo(state.map);
+      }
+      renderFeed();
+      toast("Live location updated", "success");
+    },
+    (err) => { icon.classList.remove("animate-spin"); toast("Couldn't get your location — check location permissions.", "error"); },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+document.getElementById("locate-btn").addEventListener("click", locateMe);
+
+function renderExpenses() {
+  const list = Object.entries(state.expenses).map(([id, e]) => ({ id, ...e })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  const listEl = document.getElementById("expense-list");
+  if (list.length === 0) {
+    listEl.innerHTML = `<p class="text-sm text-base-500 text-center py-3">No expenses logged yet.</p>`;
+  } else {
+    listEl.innerHTML = list.slice(0, 8).map(e => `
+      <div class="flex items-center justify-between bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5">
+        <div>
+          <p class="text-sm font-semibold text-base-50">${escapeHtml(e.label)}</p>
+          <p class="text-[11px] text-base-400 font-mono">${escapeHtml(e.payer)} paid · split ${e.splitWith.length} ways</p>
+        </div>
+        <p class="font-display font-bold text-marigold-400">₹${Number(e.amount).toLocaleString("en-IN")}</p>
+      </div>
+    `).join("");
+  }
+
+  const balances = {};
+  TRIP_MEMBERS.forEach(m => balances[m] = 0);
+  list.forEach(e => {
+    const share = e.amount / e.splitWith.length;
+    e.splitWith.forEach(m => { balances[m] = (balances[m] || 0) - share; });
+    balances[e.payer] = (balances[e.payer] || 0) + e.amount;
+  });
+  const creditors = Object.entries(balances).filter(([, v]) => v > 0.5).map(([n, v]) => ({ n, v })).sort((a, b) => b.v - a.v);
+  const debtors = Object.entries(balances).filter(([, v]) => v < -0.5).map(([n, v]) => ({ n, v: -v })).sort((a, b) => b.v - a.v);
+  const settlements = [];
+  let ci = 0, di = 0;
+  while (ci < creditors.length && di < debtors.length) {
+    const amt = Math.min(creditors[ci].v, debtors[di].v);
+    settlements.push({ from: debtors[di].n, to: creditors[ci].n, amt: Math.round(amt) });
+    creditors[ci].v -= amt; debtors[di].v -= amt;
+    if (creditors[ci].v < 0.5) ci++;
+    if (debtors[di].v < 0.5) di++;
+  }
+  const settleEl = document.getElementById("settle-list");
+  settleEl.innerHTML = settlements.length === 0
+    ? `<p class="text-xs text-base-500">Everyone's settled up 🎉</p>`
+    : settlements.map(s => `<div class="flex items-center justify-between text-sm"><span class="text-base-200"><span class="font-semibold">${escapeHtml(s.from)}</span> → <span class="font-semibold">${escapeHtml(s.to)}</span></span><span class="font-mono text-clay-400">₹${s.amt.toLocaleString("en-IN")}</span></div>`).join("");
+}
+
+function openAddExpenseModal() {
+  const memberChecks = TRIP_MEMBERS.map(m => `
+    <label class="flex items-center gap-2 bg-base-800 border border-base-700 rounded-lg px-3 py-2 text-sm">
+      <input type="checkbox" name="splitWith" value="${escapeHtml(m)}" checked class="accent-marigold-500 w-4 h-4"> ${escapeHtml(m)}
+    </label>`).join("");
+  const payerOptions = TRIP_MEMBERS.map(m => `<option value="${escapeHtml(m)}" ${m === state.me ? "selected" : ""}>${escapeHtml(m)}</option>`).join("");
+  const root = openModal(`
+    <div class="p-5">
+      <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">Log an Expense</h2>
+      <form id="expense-form" class="flex flex-col gap-3">
+        <div>
+          <label class="text-xs font-mono text-base-400 mb-1 block">What was it for? *</label>
+          <input required name="label" type="text" placeholder="e.g. Pork Platters at Kunga" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-mono text-base-400 mb-1 block">Amount (₹) *</label>
+            <input required name="amount" type="number" min="1" step="any" placeholder="2400" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+          </div>
+          <div>
+            <label class="text-xs font-mono text-base-400 mb-1 block">Paid by *</label>
+            <select name="payer" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">${payerOptions}</select>
+          </div>
+        </div>
+        <div>
+          <label class="text-xs font-mono text-base-400 mb-1.5 block">Split between</label>
+          <div class="grid grid-cols-2 gap-2">${memberChecks}</div>
+        </div>
+        <button type="submit" class="mt-1 w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">Add Expense</button>
+      </form>
+    </div>
+  `);
+  root.querySelector("#expense-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const splitWith = fd.getAll("splitWith");
+    if (splitWith.length === 0) { toast("Pick at least one person to split with.", "error"); return; }
+    db.push("expenses", { label: (fd.get("label") || "").trim(), amount: parseFloat(fd.get("amount")), payer: fd.get("payer"), splitWith, ts: Date.now(), })
+      .then(() => { toast("Expense logged 💸", "success"); closeModal(); });
+  });
+}
+document.getElementById("add-expense-btn").addEventListener("click", () => { if (!state.me) { promptForIdentity(true); return; } openAddExpenseModal(); });
+
+function renderPolls() {
+  const list = Object.entries(state.polls).map(([id, p]) => ({ id, ...p })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  const el = document.getElementById("poll-list");
+  if (list.length === 0) { el.innerHTML = `<p class="text-sm text-base-500 text-center py-3">No polls yet — start one to settle a group debate.</p>`; return; }
+  el.innerHTML = list.map(poll => {
+    const votes = poll.votes || {}; const totalVotes = Object.keys(votes).length; const myVote = state.me ? votes[state.me] : null;
+    const optionsHtml = poll.options.map((opt, i) => {
+      const count = Object.values(votes).filter(v => v === i).length;
+      const pct = totalVotes ? Math.round((count / totalVotes) * 100) : 0;
+      const mine = myVote === i;
+      return `
+        <button data-poll="${poll.id}" data-opt="${i}" class="poll-opt-btn relative w-full text-left rounded-lg overflow-hidden border ${mine ? 'border-marigold-500' : 'border-base-700'} bg-base-800">
+          <div class="absolute inset-y-0 left-0 bg-marigold-500/20" style="width:${pct}%"></div>
+          <div class="relative flex items-center justify-between px-3 py-2"><span class="text-sm ${mine ? 'text-marigold-300 font-semibold' : 'text-base-200'}">${escapeHtml(opt)} ${mine ? '✓' : ''}</span><span class="text-[11px] font-mono text-base-400">${count} · ${pct}%</span></div>
+        </button>`;
+    }).join("");
+    return `<div class="bg-base-800/50 border border-base-700 rounded-xl p-3.5"><p class="text-sm font-semibold text-base-50 mb-2">${escapeHtml(poll.question)}</p><div class="flex flex-col gap-1.5">${optionsHtml}</div><p class="text-[11px] text-base-500 mt-2 font-mono">${totalVotes} of ${TRIP_MEMBERS.length} voted · by ${escapeHtml(poll.createdBy || "someone")}</p></div>`;
+  }).join("");
+
+  el.querySelectorAll(".poll-opt-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!state.me) { promptForIdentity(true); return; }
+      const pollId = btn.dataset.poll; const optIdx = parseInt(btn.dataset.opt, 10);
+      const newVotes = Object.assign({}, state.polls[pollId].votes || {}, { [state.me]: optIdx });
+      db.update("polls", pollId, { votes: newVotes });
+    });
+  });
+}
+
+function openAddPollModal() {
+  const root = openModal(`
+    <div class="p-5">
+      <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">New Poll</h2>
+      <form id="poll-form" class="flex flex-col gap-3">
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Question *</label><input required name="question" type="text" placeholder="Should we go to Tiger Hill tomorrow?" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Option A *</label><input required name="optA" type="text" placeholder="Yes" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Option B *</label><input required name="optB" type="text" placeholder="No" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Option C <span class="text-base-500">(optional)</span></label><input name="optC" type="text" placeholder="Let's vote on it" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <button type="submit" class="mt-1 w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">Start Poll</button>
+      </form>
+    </div>
+  `);
+  root.querySelector("#poll-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const options = [fd.get("optA"), fd.get("optB"), fd.get("optC")].map(s => (s || "").trim()).filter(Boolean);
+    db.push("polls", { question: (fd.get("question") || "").trim(), options, votes: {}, createdBy: state.me || "Someone", ts: Date.now(), })
+      .then(() => { toast("Poll created — go vote! 🗳️", "success"); closeModal(); });
+  });
+}
+document.getElementById("add-poll-btn").addEventListener("click", () => { if (!state.me) { promptForIdentity(true); return; } openAddPollModal(); });
+
+const NOTE_COLORS = ["bg-marigold-500/15 border-marigold-500/40", "bg-pine-500/15 border-pine-500/40", "bg-clay-500/15 border-clay-500/40", "bg-base-600/30 border-base-500/50"];
+function renderNotes() {
+  const list = Object.entries(state.notes).map(([id, n]) => ({ id, ...n })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  const el = document.getElementById("notes-grid");
+  if (list.length === 0) { el.innerHTML = `<p class="col-span-2 text-sm text-base-500 text-center py-3">No notes pinned yet.</p>`; return; }
+  el.innerHTML = list.map((n, i) => `
+    <div class="relative ${NOTE_COLORS[i % NOTE_COLORS.length]} border rounded-xl p-3 min-h-[88px] flex flex-col justify-between">
+      <p class="text-sm text-base-100 leading-snug break-words">${escapeHtml(n.text)}</p>
+      <div class="flex items-center justify-between mt-2"><p class="text-[10px] font-mono text-base-400">— ${escapeHtml(n.author || "someone")}</p><button data-id="${n.id}" class="note-delete text-base-500 hover:text-clay-400 text-[10px]">✕</button></div>
+    </div>
+  `).join("");
+  el.querySelectorAll(".note-delete").forEach(btn => { btn.addEventListener("click", () => db.remove("notes", btn.dataset.id)); });
+}
+function openAddNoteModal() {
+  const root = openModal(`
+    <div class="p-5">
+      <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">Pin a Note</h2>
+      <form id="note-form" class="flex flex-col gap-3">
+        <textarea required name="text" rows="3" maxlength="180" placeholder="Driver arriving at 8:00 AM sharp!" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500 resize-none"></textarea>
+        <button type="submit" class="w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">Pin Note</button>
+      </form>
+    </div>
+  `);
+  root.querySelector("#note-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    db.push("notes", { text: (new FormData(e.target).get("text") || "").trim(), author: state.me || "Someone", ts: Date.now() })
+      .then(() => { toast("Note pinned to the corkboard 📌", "success"); closeModal(); });
+  });
+}
+document.getElementById("add-note-btn").addEventListener("click", () => { if (!state.me) { promptForIdentity(true); return; } openAddNoteModal(); });
+
+function renderPacking() {
+  const list = Object.entries(state.packing).map(([id, it]) => ({ id, ...it })).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  const el = document.getElementById("packing-list");
+  if (list.length === 0) { el.innerHTML = `<p class="text-sm text-base-500 text-center py-2">List is empty.</p>`; return; }
+  el.innerHTML = list.map(it => `
+    <div class="flex items-center justify-between bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <button data-id="${it.id}" class="packing-check shrink-0 w-5 h-5 rounded-md border-2 ${it.packed ? 'bg-pine-500 border-pine-500' : 'border-base-500'} flex items-center justify-center">
+          ${it.packed ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="#100F0C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>' : ''}
+        </button>
+        <span class="text-sm ${it.packed ? 'text-base-500 line-through' : 'text-base-100'} truncate">${escapeHtml(it.name)}</span>
+      </div>
+      <button data-id="${it.id}" class="packing-claim shrink-0 text-[11px] font-mono ${it.claimedBy ? 'text-pine-400' : 'text-base-500'} ml-2">${it.claimedBy ? escapeHtml(it.claimedBy) : "claim"}</button>
+    </div>
+  `).join("");
+  el.querySelectorAll(".packing-check").forEach(btn => {
+    btn.addEventListener("click", () => { const it = state.packing[btn.dataset.id]; db.update("packing", btn.dataset.id, { packed: !it.packed }); });
+  });
+  el.querySelectorAll(".packing-claim").forEach(btn => {
+    btn.addEventListener("click", () => {
+      if (!state.me) { promptForIdentity(true); return; }
+      const it = state.packing[btn.dataset.id];
+      db.update("packing", btn.dataset.id, { claimedBy: it.claimedBy === state.me ? null : state.me });
+    });
+  });
+}
+document.getElementById("add-packing-btn").addEventListener("click", () => {
+  const name = prompt("Item to add to the packing list:");
+  if (name && name.trim()) { db.push("packing", { name: name.trim(), packed: false, claimedBy: null, ts: Date.now() }); }
+});
+
+const WEATHER_HUBS = [
+  { name: "Siliguri", lat: 26.7271, lng: 88.4275 }, { name: "Darjeeling", lat: 27.0410, lng: 88.2660 },
+  { name: "Kalimpong", lat: 27.0666, lng: 88.4700 }, { name: "Mirik", lat: 26.8870, lng: 88.1830 },
+];
+const WMO_ICONS = {
+  0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️", 45: "🌫️", 48: "🌫️", 51: "🌦️", 53: "🌦️", 55: "🌦️", 61: "🌧️", 63: "🌧️", 65: "🌧️",
+  71: "🌨️", 73: "🌨️", 75: "❄️", 80: "🌦️", 81: "🌧️", 82: "⛈️", 95: "⛈️", 96: "⛈️", 99: "⛈️",
+};
+async function loadWeather() {
+  const grid = document.getElementById("weather-grid");
+  grid.innerHTML = WEATHER_HUBS.map(h => `<div class="bg-base-800 border border-base-700 rounded-xl p-3 animate-pulse"><p class="text-xs font-mono text-base-400">${h.name}</p><p class="text-2xl mt-1">···</p></div>`).join("");
+  try {
+    const results = await Promise.all(WEATHER_HUBS.map(h => fetch(`https://api.open-meteo.com/v1/forecast?latitude=${h.lat}&longitude=${h.lng}&current=temperature_2m,weather_code,precipitation`).then(r => r.json()).catch(() => null)));
+    grid.innerHTML = WEATHER_HUBS.map((h, i) => {
+      const cur = results[i]?.current;
+      if (!cur) return `<div class="bg-base-800 border border-base-700 rounded-xl p-3"><p class="text-xs font-mono text-base-400">${h.name}</p><p class="text-sm text-base-500 mt-1">unavailable</p></div>`;
+      const icon = WMO_ICONS[cur.weather_code] ?? "🌡️";
+      return `<div class="bg-base-800 border border-base-700 rounded-xl p-3"><p class="text-xs font-mono text-base-400">${h.name}</p><div class="flex items-center justify-between mt-1"><span class="text-2xl">${icon}</span><span class="font-display font-bold text-lg text-base-50">${Math.round(cur.temperature_2m)}°C</span></div>${cur.precipitation > 0 ? `<p class="text-[11px] text-pine-300 mt-1 font-mono">${cur.precipitation}mm rain</p>` : `<p class="text-[11px] text-base-500 mt-1 font-mono">no rain</p>`}</div>`;
+    }).join("");
+  } catch (e) { grid.innerHTML = `<p class="col-span-2 text-sm text-base-500 text-center py-2">Couldn't load weather — check connection.</p>`; }
+}
+document.getElementById("weather-refresh").addEventListener("click", loadWeather);
+
+function renderSos() {
+  const el = document.getElementById("sos-list");
+  el.innerHTML = EMERGENCY_CONTACTS.map(c => `
+    <a href="tel:${escapeHtml(c.phone || '')}" class="flex items-center justify-between bg-base-900/60 border border-base-700 rounded-xl px-3.5 py-2.5 ${c.phone ? 'active:scale-[0.98]' : 'opacity-60 pointer-events-none'} transition">
+      <div><p class="text-sm font-semibold text-base-50">${escapeHtml(c.label)}</p><p class="text-[11px] text-base-400 font-mono">${escapeHtml(c.name)}</p></div>
+      <div class="flex items-center gap-1.5 text-clay-400"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.8 19.8 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="currentColor" stroke-width="1.8"/></svg><span class="text-sm font-mono">${c.phone || "—"}</span></div>
+    </a>
+  `).join("");
+}
+
+function setupPwa() {
+  // PWA stub disabled for local file viewing
+}
+
+function seedPlacesObject() { 
+  const obj = {}; 
+  SEED_PLACES.forEach(p => { obj[p.id] = p; }); 
+  return obj; 
+}
+
+function seedPackingObject() { const obj = {}; SEED_PACKING.forEach((name, i) => { obj[`seed-pack-${i}`] = { name, packed: false, claimedBy: null, ts: i }; }); return obj; }
+
+function initApp() {
+  document.getElementById("album-link").setAttribute("href", SHARED_ALBUM_URL);
+  promptForIdentity(); renderFilterChips(); renderSos(); loadWeather(); setupPwa(); initMap();
+
+  db.seedIfEmpty("places", seedPlacesObject()); db.seedIfEmpty("packing", seedPackingObject());
+
+  db.watch("places", (data) => { 
+    const placesObj = data || {}; 
+    Object.keys(placesObj).forEach(key => { if (placesObj[key]) placesObj[key].id = key; });
+    state.places = placesObj; 
+    renderFeed(); 
+    syncMapMarkers(); 
+  });
+  
+  db.watch("expenses", (data) => { state.expenses = data || {}; renderExpenses(); });
+  db.watch("polls", (data) => { state.polls = data || {}; renderPolls(); });
+  db.watch("notes", (data) => { state.notes = data || {}; renderNotes(); });
+  db.watch("packing", (data) => { state.packing = data || {}; renderPacking(); });
+
+  if (navigator.permissions && navigator.permissions.query) {
+    navigator.permissions.query({ name: "geolocation" }).then(status => { if (status.state === "granted") locateMe(); }).catch(() => {});
+  }
+}
+
+document.addEventListener("DOMContentLoaded", initApp);
+</script>
+</body>
+</html>
