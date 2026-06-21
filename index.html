@@ -7,17 +7,23 @@
 <meta name="description" content="Shared trip companion for the Siliguri, Darjeeling & Dooars hill circuit.">
 <meta name="theme-color" content="#171712">
 
+<!-- ===================== PWA MANIFEST ===================== -->
+<link rel="manifest" id="manifest-link">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23171712'/%3E%3Cpath d='M10 70 L35 35 L50 55 L65 30 L92 70 Z' fill='%23E8A33D'/%3E%3Ccircle cx='72' cy='24' r='9' fill='%2358A893'/%3E%3C/svg%3E">
 
+<!-- ===================== FONTS ===================== -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800&family=Archivo:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
+<!-- ===================== TAILWIND ===================== -->
 <script src="https://cdn.tailwindcss.com"></script>
 
+<!-- ===================== LEAFLET.JS ===================== -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<!-- ===================== FIREBASE ===================== -->
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-database-compat.js"></script>
 
@@ -218,6 +224,15 @@
           <div id="packing-list" class="flex flex-col gap-2 mb-3"></div>
           <button id="add-packing-btn" class="w-full text-center text-[11px] font-mono text-marigold-400 border border-dashed border-base-600 rounded-lg py-2 active:scale-[0.98] transition">+ add item</button>
         </div>
+        <a id="album-link" href="#" target="_blank" rel="noopener" class="block bg-gradient-to-br from-marigold-600 to-clay-600 rounded-2xl p-4 shadow-card active:scale-[0.98] transition">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-display font-bold text-base-950 text-sm tracking-wide">SHARED PHOTO ALBUM</h3>
+              <p class="text-base-950/70 text-xs mt-0.5">Open the collaborative Google Photos album</p>
+            </div>
+            <svg class="w-6 h-6 text-base-950" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </a>
       </div>
     </section>
   </main>
@@ -251,9 +266,9 @@
 <div id="modal-root"></div>
 
 <script>
-// =========================================================================
-// FIREBASE LIVE CONNECTION KEYS
-// =========================================================================
+// ==========================================
+// 1. YOUR FIREBASE CONFIGURATION
+// ==========================================
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyAwITXL-YPjRtZ7e5X6w356MGl7uj99Z3c",
   authDomain: "hill-trek.firebaseapp.com",
@@ -265,10 +280,12 @@ const FIREBASE_CONFIG = {
   measurementId: "G-02B40GVDBG"
 };
 
+// ==========================================
+// 2. ENABLE LIVE SYNC
+// ==========================================
 const FIREBASE_ENABLED = true;
 
 const TRIP_MEMBERS = ["Chiku", "Shubhi", "Sanjay", "Rama", "Rakshpal", "Arvind"];
-
 const EMERGENCY_CONTACTS = [
   { label: "Tour Driver", name: "Add driver's name", phone: "" },
   { label: "Siliguri Police Control Room", name: "Siliguri PS Helpline", phone: "100" },
@@ -277,6 +294,7 @@ const EMERGENCY_CONTACTS = [
   { label: "Ambulance", name: "National Ambulance", phone: "108" },
 ];
 
+const SHARED_ALBUM_URL = "https://photos.google.com";
 const MAP_CENTER = [26.95, 88.35];
 const MAP_DEFAULT_ZOOM = 10;
 const ALL_CATEGORIES = ["Pork/Beef Food", "Local Food", "Sightseeing", "Day Trip", "Nature", "Viewpoints", "Shopping", "Wildlife", "Monastery/Temple", "Chinese", "Tibetan"];
@@ -334,11 +352,20 @@ const SEED_PLACES = [
   { id: "p50-phuentsholing", name: "Phuentsholing", region: "Bhutan Border", category: "Day Trip", tags: ["Day Trip", "Pork/Beef Food"], rating: 4.6, description: "Drive 3.5 hours to Jaigaon, cross the Bhutan gate without a visa, and eat authentic Bhutanese pork and beef dishes.", lat: 26.8630, lng: 89.3890, image: "https://images.unsplash.com/photo-1548943487-a2e4b43b5851?q=80&w=800&auto=format&fit=crop", website: "", social: "", visited: false, visitedBy: null }
 ];
 
+function seedPlacesObject() { 
+  const obj = {}; 
+  SEED_PLACES.forEach(p => { obj[p.id] = p; }); 
+  return obj; 
+}
+
 const SEED_PACKING = [
   "First-Aid kit", "Power banks", "Multi-plugs / extension board", "Offline maps downloaded",
   "Rain ponchos", "Torch / headlamp", "Portable speaker", "Power bank cables", "Snacks for the road", "Cash (small notes)"
 ];
 
+function seedPackingObject() { const obj = {}; SEED_PACKING.forEach((name, i) => { obj[`seed-pack-${i}`] = { name, packed: false, claimedBy: null, ts: i }; }); return obj; }
+
+// We preload the state instantly so the UI never shows a blank screen
 const state = {
   me: null, places: {}, expenses: {}, polls: {}, notes: {}, packing: {},
   activeView: "feed", activeCategoryFilter: "All", unvisitedOnly: false,
@@ -347,26 +374,12 @@ const state = {
 
 const db = (() => {
   let fbApp = null, fbRoot = null;
-  const LOCAL_KEY = "hilltrail_local_db_v4";
+  const LOCAL_KEY = "hilltrail_local_db_v4"; 
 
-  function loadLocal() { 
-    try { 
-      const raw = window.localStorage.getItem(LOCAL_KEY); 
-      return raw ? JSON.parse(raw) : {}; 
-    } catch (e) { 
-      return window.__fallbackStorage || {}; 
-    } 
-  }
-  
-  function saveLocal(data) { 
-    try { 
-      window.localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); 
-    } catch (e) { 
-      window.__fallbackStorage = data; 
-    } 
-  }
-  
+  function loadLocal() { try { const raw = localStorage.getItem(LOCAL_KEY); return raw ? JSON.parse(raw) : {}; } catch (e) { return {}; } }
+  function saveLocal(data) { try { localStorage.setItem(LOCAL_KEY, JSON.stringify(data)); } catch (e) { } }
   const localListeners = {};
+  
   function emitLocal(path) {
     const data = loadLocal();
     const node = path.split("/").filter(Boolean).reduce((acc, key) => (acc ? acc[key] : undefined), data) || {};
@@ -374,78 +387,56 @@ const db = (() => {
   }
 
   if (FIREBASE_ENABLED) {
-    try { 
-      fbApp = firebase.initializeApp(FIREBASE_CONFIG); 
-      fbRoot = firebase.database(); 
-    } catch (e) { 
-      console.error("Firebase init failed"); 
-    }
+    try { fbApp = firebase.initializeApp(FIREBASE_CONFIG); fbRoot = firebase.database(); } 
+    catch (e) { console.error("Firebase init failed"); }
   }
 
   return {
     isLive: () => !!fbRoot,
     watch(path, cb) {
       if (fbRoot) { 
-        fbRoot.ref(path).on("value", snap => cb(snap.val() || {})); 
-      } else { 
+        fbRoot.ref(path).on("value", 
+          snap => cb(snap.val() || {}),
+          err => {
+            console.error("Firebase Sync Error on " + path + ":", err);
+            // Fallback to local data instantly if Firebase throws an error
+            const data = loadLocal();
+            cb(data[path] || {});
+          }
+        ); 
+      } 
+      else { 
         localListeners[path] = localListeners[path] || []; 
         localListeners[path].push(cb); 
         emitLocal(path); 
       }
     },
     set(path, id, value) {
-      if (fbRoot) { 
-        return fbRoot.ref(`${path}/${id}`).set(value); 
-      } else { 
-        const data = loadLocal(); 
-        data[path] = data[path] || {}; 
-        data[path][id] = value; 
-        saveLocal(data); 
-        emitLocal(path); 
-        return Promise.resolve(); 
-      }
+      const data = loadLocal(); data[path] = data[path] || {}; data[path][id] = value; saveLocal(data); emitLocal(path);
+      if (fbRoot) { return fbRoot.ref(`${path}/${id}`).set(value).catch(e => console.error("Write error:", e)); } 
+      return Promise.resolve();
     },
     update(path, id, partial) {
-      if (fbRoot) { 
-        return fbRoot.ref(`${path}/${id}`).update(partial); 
-      } else { 
-        const data = loadLocal(); 
-        data[path] = data[path] || {}; 
-        data[path][id] = Object.assign({}, data[path][id] || {}, partial); 
-        saveLocal(data); 
-        emitLocal(path); 
-        return Promise.resolve(); 
-      }
+      const data = loadLocal(); data[path] = data[path] || {}; data[path][id] = Object.assign({}, data[path][id] || {}, partial); saveLocal(data); emitLocal(path);
+      if (fbRoot) { return fbRoot.ref(`${path}/${id}`).update(partial).catch(e => console.error("Update error:", e)); } 
+      return Promise.resolve();
     },
     push(path, value) {
       const id = (fbRoot ? fbRoot.ref(path).push().key : null) || `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       return this.set(path, id, value).then(() => id);
     },
     remove(path, id) {
-      if (fbRoot) { 
-        return fbRoot.ref(`${path}/${id}`).remove(); 
-      } else { 
-        const data = loadLocal(); 
-        if (data[path]) delete data[path][id]; 
-        saveLocal(data); 
-        emitLocal(path); 
-        return Promise.resolve(); 
-      }
+      const data = loadLocal(); if (data[path]) delete data[path][id]; saveLocal(data); emitLocal(path);
+      if (fbRoot) { return fbRoot.ref(`${path}/${id}`).remove().catch(e => console.error("Remove error:", e)); } 
+      return Promise.resolve();
     },
     seedIfEmpty(path, seedObject) {
+      const data = loadLocal();
+      if (!data[path] || Object.keys(data[path]).length === 0) { data[path] = seedObject; saveLocal(data); emitLocal(path); }
       if (fbRoot) {
         fbRoot.ref(path).once("value").then(snap => { 
-          if (!snap.exists() || Object.keys(snap.val() || {}).length === 0) { 
-            fbRoot.ref(path).set(seedObject); 
-          } 
+          if (!snap.exists() || Object.keys(snap.val() || {}).length === 0) { fbRoot.ref(path).set(seedObject); } 
         });
-      } else {
-        const data = loadLocal();
-        if (!data[path] || Object.keys(data[path]).length === 0) { 
-          data[path] = seedObject; 
-          saveLocal(data); 
-        }
-        emitLocal(path);
       }
     },
   };
@@ -461,17 +452,19 @@ function toast(msg, tone = "default") {
   setTimeout(() => el.remove(), 3100);
 }
 
-// 1. COMPLETELY SAFE TEXT ESCAPING
+// ----------------------------------------------------
+// BULLETPROOF ESCAPE FUNCTION
+// ----------------------------------------------------
 function escapeHtml(str) {
   if (!str) return "";
-  let s = String(str);
-  s = s.split("&").join("&" + "amp;");
-  s = s.split("<").join("&" + "lt;");
-  s = s.split(">").join("&" + "gt;");
-  s = s.split('"').join("&" + "quot;");
-  s = s.split("'").join("&" + "#39;");
-  return s;
+  return String(str)
+    .split("\x26").join("\x26amp;")
+    .split("<").join("\x26lt;")
+    .split(">").join("\x26gt;")
+    .split('"').join("\x26quot;")
+    .split("'").join("\x26#39;");
 }
+
 function haversineKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -502,13 +495,11 @@ function openModal(innerHtml, { wide = false } = {}) {
 function closeModal() { document.getElementById("modal-root").innerHTML = ""; }
 
 const ME_KEY = "hilltrail_me";
-
-// 2. SAFE STORAGE FOR LOCAL PHONES
 function getMe() { 
-  try { return window.localStorage.getItem(ME_KEY); } catch(e) { return state.me; } 
+  try { return localStorage.getItem(ME_KEY); } catch(e) { return state.me; } 
 }
 function setMe(name) { 
-  try { window.localStorage.setItem(ME_KEY, name); } catch(e) {} 
+  try { localStorage.setItem(ME_KEY, name); } catch(e) {} 
   state.me = name; 
   updateHeaderAvatar(); 
 }
@@ -567,7 +558,7 @@ function renderFilterChips() {
 }
 
 function getFilteredPlaces() {
-  let list = Object.values(state.places).filter(Boolean);
+  let list = Object.values(state.places).filter(Boolean); 
   if (state.activeCategoryFilter !== "All") {
     list = list.filter(p => (p.tags || []).includes(state.activeCategoryFilter) || p.category === state.activeCategoryFilter);
   }
@@ -635,9 +626,9 @@ function toggleVisited(id) {
   if (!place) return;
   const nowVisited = !place.visited;
   db.update("places", id, { visited: nowVisited, visitedBy: nowVisited ? state.me : null });
-  const btn = document.querySelector(`[data-visited-toggle="` + id + `"]`);
+  const btn = document.querySelector(`[data-visited-toggle="${CSS.escape(id)}"]`);
   if (btn) btn.classList.add("visited-pop");
-  toast(nowVisited ? `Marked "` + place.name + `" as visited ✅` : `Unmarked "` + place.name + `"`, nowVisited ? "success" : "default");
+  toast(nowVisited ? `Marked "${place.name}" as visited ✅` : `Unmarked "${place.name}"`, nowVisited ? "success" : "default");
 }
 
 function openPlaceDetail(id) {
@@ -770,7 +761,7 @@ document.getElementById("fab-add").addEventListener("click", () => {
 function initMap() {
   state.map = L.map("leaflet-map", { zoomControl: true, attributionControl: true }).setView(MAP_CENTER, MAP_DEFAULT_ZOOM);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19, attribution: '© OpenStreetMap contributors',
+    maxZoom: 19, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
   }).addTo(state.map);
 }
 
@@ -818,7 +809,7 @@ function syncMapMarkers() {
 function locateMe() {
   const icon = document.getElementById("locate-icon");
   icon.classList.add("animate-spin");
-  if (!navigator.geolocation) { toast("Geolocation isn't available.", "error"); icon.classList.remove("animate-spin"); return; }
+  if (!navigator.geolocation) { toast("Geolocation isn't available on this device.", "error"); icon.classList.remove("animate-spin"); return; }
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       icon.classList.remove("animate-spin");
@@ -837,7 +828,7 @@ function locateMe() {
       renderFeed();
       toast("Live location updated", "success");
     },
-    (err) => { icon.classList.remove("animate-spin"); toast("Check location permissions.", "error"); },
+    (err) => { icon.classList.remove("animate-spin"); toast("Couldn't get your location — check location permissions.", "error"); },
     { enableHighAccuracy: true, timeout: 10000 }
   );
 }
@@ -920,7 +911,7 @@ function openAddExpenseModal() {
     e.preventDefault();
     const fd = new FormData(e.target);
     const splitWith = fd.getAll("splitWith");
-    if (splitWith.length === 0) { toast("Pick at least one person to split.", "error"); return; }
+    if (splitWith.length === 0) { toast("Pick at least one person to split with.", "error"); return; }
     db.push("expenses", { label: (fd.get("label") || "").trim(), amount: parseFloat(fd.get("amount")), payer: fd.get("payer"), splitWith, ts: Date.now(), })
       .then(() => { toast("Expense logged 💸", "success"); closeModal(); });
   });
@@ -930,7 +921,7 @@ document.getElementById("add-expense-btn").addEventListener("click", () => { if 
 function renderPolls() {
   const list = Object.entries(state.polls).map(([id, p]) => ({ id, ...p })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
   const el = document.getElementById("poll-list");
-  if (list.length === 0) { el.innerHTML = `<p class="text-sm text-base-500 text-center py-3">No polls yet.</p>`; return; }
+  if (list.length === 0) { el.innerHTML = `<p class="text-sm text-base-500 text-center py-3">No polls yet — start one to settle a group debate.</p>`; return; }
   el.innerHTML = list.map(poll => {
     const votes = poll.votes || {}; const totalVotes = Object.keys(votes).length; const myVote = state.me ? votes[state.me] : null;
     const optionsHtml = poll.options.map((opt, i) => {
@@ -961,9 +952,10 @@ function openAddPollModal() {
     <div class="p-5">
       <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">New Poll</h2>
       <form id="poll-form" class="flex flex-col gap-3">
-        <div><label class="text-xs font-mono text-base-400 mb-1 block">Question *</label><input required name="question" type="text" placeholder="Tiger Hill tomorrow?" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Question *</label><input required name="question" type="text" placeholder="Should we go to Tiger Hill tomorrow?" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
         <div><label class="text-xs font-mono text-base-400 mb-1 block">Option A *</label><input required name="optA" type="text" placeholder="Yes" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
         <div><label class="text-xs font-mono text-base-400 mb-1 block">Option B *</label><input required name="optB" type="text" placeholder="No" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Option C <span class="text-base-500">(optional)</span></label><input name="optC" type="text" placeholder="Let's vote on it" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
         <button type="submit" class="mt-1 w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">Start Poll</button>
       </form>
     </div>
@@ -971,9 +963,9 @@ function openAddPollModal() {
   root.querySelector("#poll-form").addEventListener("submit", (e) => {
     e.preventDefault();
     const fd = new FormData(e.target);
-    const options = [fd.get("optA"), fd.get("optB")].map(s => (s || "").trim()).filter(Boolean);
+    const options = [fd.get("optA"), fd.get("optB"), fd.get("optC")].map(s => (s || "").trim()).filter(Boolean);
     db.push("polls", { question: (fd.get("question") || "").trim(), options, votes: {}, createdBy: state.me || "Someone", ts: Date.now(), })
-      .then(() => { toast("Poll created! 🗳️", "success"); closeModal(); });
+      .then(() => { toast("Poll created — go vote! 🗳️", "success"); closeModal(); });
   });
 }
 document.getElementById("add-poll-btn").addEventListener("click", () => { if (!state.me) { promptForIdentity(true); return; } openAddPollModal(); });
@@ -996,7 +988,7 @@ function openAddNoteModal() {
     <div class="p-5">
       <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">Pin a Note</h2>
       <form id="note-form" class="flex flex-col gap-3">
-        <textarea required name="text" rows="3" maxlength="180" placeholder="Driver arriving at 8!" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500 resize-none"></textarea>
+        <textarea required name="text" rows="3" maxlength="180" placeholder="Driver arriving at 8:00 AM sharp!" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500 resize-none"></textarea>
         <button type="submit" class="w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">Pin Note</button>
       </form>
     </div>
@@ -1004,7 +996,7 @@ function openAddNoteModal() {
   root.querySelector("#note-form").addEventListener("submit", (e) => {
     e.preventDefault();
     db.push("notes", { text: (new FormData(e.target).get("text") || "").trim(), author: state.me || "Someone", ts: Date.now() })
-      .then(() => { toast("Note pinned! 📌", "success"); closeModal(); });
+      .then(() => { toast("Note pinned to the corkboard 📌", "success"); closeModal(); });
   });
 }
 document.getElementById("add-note-btn").addEventListener("click", () => { if (!state.me) { promptForIdentity(true); return; } openAddNoteModal(); });
@@ -1059,33 +1051,36 @@ async function loadWeather() {
       const icon = WMO_ICONS[cur.weather_code] ?? "🌡️";
       return `<div class="bg-base-800 border border-base-700 rounded-xl p-3"><p class="text-xs font-mono text-base-400">${h.name}</p><div class="flex items-center justify-between mt-1"><span class="text-2xl">${icon}</span><span class="font-display font-bold text-lg text-base-50">${Math.round(cur.temperature_2m)}°C</span></div>${cur.precipitation > 0 ? `<p class="text-[11px] text-pine-300 mt-1 font-mono">${cur.precipitation}mm rain</p>` : `<p class="text-[11px] text-base-500 mt-1 font-mono">no rain</p>`}</div>`;
     }).join("");
-  } catch (e) { grid.innerHTML = `<p class="col-span-2 text-sm text-base-500 text-center py-2">Couldn't load weather.</p>`; }
+  } catch (e) { grid.innerHTML = `<p class="col-span-2 text-sm text-base-500 text-center py-2">Couldn't load weather — check connection.</p>`; }
 }
 document.getElementById("weather-refresh").addEventListener("click", loadWeather);
 
-function renderSos() {
-  const el = document.getElementById("sos-list");
-  el.innerHTML = EMERGENCY_CONTACTS.map(c => `
-    <a href="tel:${escapeHtml(c.phone || '')}" class="flex items-center justify-between bg-base-900/60 border border-base-700 rounded-xl px-3.5 py-2.5 ${c.phone ? 'active:scale-[0.98]' : 'opacity-60 pointer-events-none'} transition">
-      <div><p class="text-sm font-semibold text-base-50">${escapeHtml(c.label)}</p><p class="text-[11px] text-base-400 font-mono">${escapeHtml(c.name)}</p></div>
-      <div class="flex items-center gap-1.5 text-clay-400"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.8 19.8 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z" stroke="currentColor" stroke-width="1.8"/></svg><span class="text-sm font-mono">${c.phone || "—"}</span></div>
-    </a>
-  `).join("");
-}
+function setupPwa() {}
 
-function seedPlacesObject() { 
-  const obj = {}; 
-  SEED_PLACES.forEach(p => { obj[p.id] = p; }); 
-  return obj; 
-}
-
-function seedPackingObject() { const obj = {}; SEED_PACKING.forEach((name, i) => { obj[`seed-pack-${i}`] = { name, packed: false, claimedBy: null, ts: i }; }); return obj; }
-
+// ==========================================
+// THE FIX: PRE-LOAD EVERYTHING INSTANTLY
+// ==========================================
 function initApp() {
   document.getElementById("album-link").setAttribute("href", SHARED_ALBUM_URL);
-  promptForIdentity(); renderFilterChips(); renderSos(); loadWeather(); initMap();
+  
+  // 1. Force the UI to draw the seed data instantly
+  state.places = seedPlacesObject();
+  state.packing = seedPackingObject();
+  
+  promptForIdentity(); 
+  renderFilterChips(); 
+  renderSos(); 
+  loadWeather(); 
+  setupPwa(); 
+  initMap();
 
-  db.seedIfEmpty("places", seedPlacesObject()); db.seedIfEmpty("packing", seedPackingObject());
+  // 2. Actually render the feed and map pins before Firebase even thinks about connecting
+  renderFeed();
+  syncMapMarkers();
+
+  // 3. Connect to Firebase in the background
+  db.seedIfEmpty("places", seedPlacesObject()); 
+  db.seedIfEmpty("packing", seedPackingObject());
 
   db.watch("places", (data) => { 
     const placesObj = data || {}; 
