@@ -8,8 +8,13 @@
 <meta name="theme-color" content="#171712">
 
 <!-- ===================== PWA MANIFEST ===================== -->
-<link rel="manifest" id="manifest-link">
+<link rel="manifest" href="manifest.json">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23171712'/%3E%3Cpath d='M10 70 L35 35 L50 55 L65 30 L92 70 Z' fill='%23E8A33D'/%3E%3Ccircle cx='72' cy='24' r='9' fill='%2358A893'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Hill Trail">
+<meta name="mobile-web-app-capable" content="yes">
 
 <!-- ===================== FONTS ===================== -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -131,20 +136,36 @@
 
 <div id="app" class="max-w-md mx-auto min-h-screen bg-base-900 relative flex flex-col">
   <header class="safe-top sticky top-0 z-30 bg-base-900/90 backdrop-blur-md border-b border-base-700/60">
+    <div id="offline-banner" class="hidden items-center justify-center gap-1.5 bg-clay-600/90 text-base-50 text-[11px] font-mono py-1.5">
+      <span class="w-1.5 h-1.5 rounded-full bg-base-50"></span> You're offline — showing saved data
+    </div>
     <div class="flex items-center justify-between px-4 pt-4 pb-3">
       <div>
         <p class="text-[11px] tracking-[0.18em] uppercase text-marigold-500 font-mono">06 travelers · live trip</p>
         <h1 class="font-display font-extrabold text-xl leading-tight text-base-50 -mt-0.5">Siliguri & the Hills</h1>
       </div>
-      <button id="open-profile-btn" class="w-10 h-10 rounded-full bg-base-800 border border-base-700 flex items-center justify-center text-marigold-400 font-display font-bold active:scale-95 transition" title="Switch your name">
-        <span id="header-avatar-initial">?</span>
-      </button>
+      <div class="flex items-center gap-2">
+        <button id="install-pwa-btn" class="hidden h-9 px-3 rounded-full bg-marigold-500/15 border border-marigold-500/40 text-marigold-300 text-[11px] font-mono items-center active:scale-95 transition">Install App</button>
+        <button id="notif-btn" class="w-9 h-9 rounded-full bg-base-800 border border-base-700 flex items-center justify-center text-base-300 active:scale-95 transition" title="Enable notifications">
+          <svg id="notif-icon" class="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <button id="open-profile-btn" class="w-10 h-10 rounded-full bg-base-800 border border-base-700 flex items-center justify-center text-marigold-400 font-display font-bold active:scale-95 transition" title="Switch your name">
+          <span id="header-avatar-initial">?</span>
+        </button>
+      </div>
     </div>
   </header>
 
   <main id="main-content" class="flex-1 relative">
     <section id="view-feed" class="view-panel active">
       <div class="sticky top-[68px] z-20 bg-base-900/95 backdrop-blur-md border-b border-base-700/50 pt-3 pb-2.5">
+        <div class="px-4 mb-2.5 flex items-center gap-2">
+          <div class="flex-1 relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-base-500" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="2"/><path d="M21 21l-4.3-4.3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input id="feed-search" type="text" placeholder="Search places, food, regions…" class="w-full bg-base-800 border border-base-700 rounded-xl pl-9 pr-3 py-2 text-sm text-base-50 outline-none focus:border-marigold-500">
+          </div>
+          <button id="surprise-me-btn" title="Pick a random unvisited spot" class="shrink-0 w-9 h-9 rounded-xl bg-base-800 border border-base-700 flex items-center justify-center text-marigold-400 active:scale-90 transition">🎲</button>
+        </div>
         <div id="filter-chips" class="flex gap-2 overflow-x-auto no-scrollbar px-4"></div>
       </div>
       <div id="gps-hint" class="mx-4 mt-3 hidden items-center gap-2 text-[11px] font-mono text-base-400">
@@ -180,6 +201,15 @@
           <p class="text-[11px] tracking-[0.18em] uppercase text-marigold-500 font-mono mb-0.5">Dashboard</p>
           <h2 class="font-display font-extrabold text-2xl text-base-50">Trip Tools</h2>
         </div>
+        <div id="countdown-card" class="bg-gradient-to-br from-pine-700/30 to-base-850 border border-pine-600/40 rounded-2xl p-4 shadow-card hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-[11px] font-mono uppercase text-pine-300 tracking-wide">Trip countdown</p>
+              <p id="countdown-text" class="font-display font-extrabold text-2xl text-base-50 mt-0.5">—</p>
+            </div>
+            <button id="countdown-edit-btn" class="text-[11px] font-mono text-pine-300 active:scale-95 transition shrink-0">set date</button>
+          </div>
+        </div>
         <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-display font-bold text-base-50 text-sm tracking-wide">MOUNTAIN WEATHER</h3>
@@ -188,17 +218,31 @@
           <div id="weather-grid" class="grid grid-cols-2 gap-2.5"></div>
         </div>
         <div class="bg-clay-600/15 border border-clay-600/40 rounded-2xl p-4 shadow-card">
-          <h3 class="font-display font-bold text-clay-400 text-sm tracking-wide mb-3 flex items-center gap-1.5">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 21h20L12 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            EMERGENCY & DRIVER
-          </h3>
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="font-display font-bold text-clay-400 text-sm tracking-wide flex items-center gap-1.5">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 21h20L12 2z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 9v5M12 17h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              EMERGENCY & DRIVER
+            </h3>
+            <button id="add-sos-btn" class="text-[11px] font-mono text-clay-300 active:scale-95 transition shrink-0">+ add</button>
+          </div>
           <div id="sos-list" class="flex flex-col gap-2"></div>
         </div>
         <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
           <div class="flex items-center justify-between mb-3">
             <h3 class="font-display font-bold text-base-50 text-sm tracking-wide">GROUP EXPENSES</h3>
-            <button id="add-expense-btn" class="text-[11px] font-mono text-marigold-400 active:scale-95 transition">+ log expense</button>
+            <div class="flex items-center gap-3">
+              <button id="reset-expenses-btn" class="text-[11px] font-mono text-clay-400 active:scale-95 transition">reset all</button>
+              <button id="add-expense-btn" class="text-[11px] font-mono text-marigold-400 active:scale-95 transition">+ log expense</button>
+            </div>
           </div>
+          <div id="budget-bar-wrap" class="mb-3 hidden">
+            <div class="flex items-center justify-between text-[11px] font-mono text-base-400 mb-1">
+              <span>Trip budget</span>
+              <span id="budget-label"></span>
+            </div>
+            <div class="h-2 w-full bg-base-800 rounded-full overflow-hidden"><div id="budget-bar-fill" class="h-full bg-marigold-500" style="width:0%"></div></div>
+          </div>
+          <button id="set-budget-btn" class="text-[10px] font-mono text-base-500 underline mb-2">set trip budget</button>
           <div id="expense-list" class="flex flex-col gap-2 mb-3"></div>
           <div class="border-t border-base-700 pt-3">
             <p class="text-[11px] font-mono uppercase text-base-400 mb-2">Who owes whom</p>
@@ -214,15 +258,38 @@
         </div>
         <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
           <div class="flex items-center justify-between mb-3">
+            <h3 class="font-display font-bold text-base-50 text-sm tracking-wide flex items-center gap-1.5">
+              <svg class="w-4 h-4 text-pine-400" viewBox="0 0 24 24" fill="none"><path d="M4 15V6a2 2 0 012-2h12a2 2 0 012 2v9a2 2 0 01-2 2H6a2 2 0 01-2-2z" stroke="currentColor" stroke-width="1.8"/><path d="M4 11h16M8 19l-2 2M16 19l2 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              TRAIN TICKETS
+            </h3>
+            <button id="add-train-btn" class="text-[11px] font-mono text-marigold-400 active:scale-95 transition">+ add ticket</button>
+          </div>
+          <div id="train-list" class="flex flex-col gap-2"></div>
+        </div>
+        <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
+          <div class="flex items-center justify-between mb-3">
             <h3 class="font-display font-bold text-base-50 text-sm tracking-wide">CORKBOARD NOTES</h3>
             <button id="add-note-btn" class="text-[11px] font-mono text-marigold-400 active:scale-95 transition">+ pin note</button>
           </div>
           <div id="notes-grid" class="grid grid-cols-2 gap-2.5"></div>
         </div>
         <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
+          <h3 class="font-display font-bold text-base-50 text-sm tracking-wide mb-3">DAY-BY-DAY ITINERARY</h3>
+          <div id="itinerary-list" class="flex flex-col gap-3"></div>
+          <p class="text-[11px] text-base-500 mt-2">Assign a place to a day from its detail card on the Feed.</p>
+        </div>
+        <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
           <h3 class="font-display font-bold text-base-50 text-sm tracking-wide mb-3">PACKING CHECKLIST</h3>
           <div id="packing-list" class="flex flex-col gap-2 mb-3"></div>
           <button id="add-packing-btn" class="w-full text-center text-[11px] font-mono text-marigold-400 border border-dashed border-base-600 rounded-lg py-2 active:scale-[0.98] transition">+ add item</button>
+        </div>
+        <div class="bg-base-850 border border-base-700 rounded-2xl p-4 shadow-card">
+          <h3 class="font-display font-bold text-base-50 text-sm tracking-wide mb-3">GROUP SHOUTBOX</h3>
+          <div id="chat-list" class="flex flex-col gap-2 mb-3 max-h-56 overflow-y-auto no-scrollbar"></div>
+          <form id="chat-form" class="flex items-center gap-2">
+            <input id="chat-input" name="msg" type="text" maxlength="200" placeholder="Say something to the group…" class="flex-1 bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+            <button type="submit" class="shrink-0 w-10 h-10 rounded-xl bg-marigold-500 text-base-950 flex items-center justify-center active:scale-90 transition"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></button>
+          </form>
         </div>
         <a id="album-link" href="#" target="_blank" rel="noopener" class="block bg-gradient-to-br from-marigold-600 to-clay-600 rounded-2xl p-4 shadow-card active:scale-[0.98] transition">
           <div class="flex items-center justify-between">
@@ -233,6 +300,16 @@
             <svg class="w-6 h-6 text-base-950" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
         </a>
+        <div class="grid grid-cols-2 gap-2.5">
+          <button id="share-trip-btn" class="bg-base-850 border border-base-700 rounded-2xl p-3.5 text-left active:scale-[0.98] transition">
+            <p class="font-display font-bold text-base-50 text-xs tracking-wide">SHARE TRIP</p>
+            <p class="text-base-400 text-[11px] mt-0.5">Send this app to the group</p>
+          </button>
+          <button id="export-summary-btn" class="bg-base-850 border border-base-700 rounded-2xl p-3.5 text-left active:scale-[0.98] transition">
+            <p class="font-display font-bold text-base-50 text-xs tracking-wide">EXPORT SUMMARY</p>
+            <p class="text-base-400 text-[11px] mt-0.5">Download expenses as CSV</p>
+          </button>
+        </div>
       </div>
     </section>
   </main>
@@ -298,13 +375,14 @@ const FIREBASE_CONFIG = {
 const FIREBASE_ENABLED = true;
 
 const TRIP_MEMBERS = ["Chiku", "Shubhi", "Sanjay", "Rama", "Rakshpal", "Arvind"];
-const EMERGENCY_CONTACTS = [
+const SEED_EMERGENCY_CONTACTS = [
   { label: "Tour Driver", name: "Add driver's name", phone: "" },
   { label: "Siliguri Police Control Room", name: "Siliguri PS Helpline", phone: "100" },
   { label: "Darjeeling Police Helpline", name: "District Control Room", phone: "0354-2254422" },
   { label: "National Highway Helpline", name: "NHAI", phone: "1033" },
   { label: "Ambulance", name: "National Ambulance", phone: "108" },
 ];
+function seedSosObject() { const obj = {}; SEED_EMERGENCY_CONTACTS.forEach((c, i) => { obj[`seed-sos-${i}`] = { ...c, ts: i }; }); return obj; }
 
 const SHARED_ALBUM_URL = "https://photos.google.com";
 const MAP_CENTER = [26.95, 88.35];
@@ -379,9 +457,10 @@ function seedPackingObject() { const obj = {}; SEED_PACKING.forEach((name, i) =>
 
 // We preload the state instantly so the UI never shows a blank screen
 const state = {
-  me: null, places: {}, expenses: {}, polls: {}, notes: {}, packing: {},
+  me: null, places: {}, expenses: {}, polls: {}, notes: {}, packing: {}, sos: {}, trains: {}, chat: {},
   activeView: "feed", activeCategoryFilter: "All", unvisitedOnly: false,
   userCoords: null, map: null, mapMarkers: {}, liveLocationMarker: null,
+  feedSearch: "", itinerary: {},
 };
 
 const db = (() => {
@@ -468,6 +547,86 @@ function toast(msg, tone = "default") {
   el.textContent = msg;
   stack.appendChild(el);
   setTimeout(() => el.remove(), 3100);
+}
+
+// ----------------------------------------------------
+// PUSH-STYLE NOTIFICATIONS
+// Since this is a static, serverless app there is no backend to fan out
+// real Web Push messages to everyone's devices while their browser is fully
+// closed. Instead, every connected member's open tab/installed app gets a
+// native OS notification the instant new data (a poll, expense, place,
+// note, train ticket...) lands via the live Firebase/local sync layer —
+// this is the same mechanism real push notifications use once a tab/app
+// is open or running in the background, and degrades gracefully to
+// in-app toasts if permission isn't granted.
+// ----------------------------------------------------
+const NOTIF_PREF_KEY = "hilltrail_notif_enabled";
+function notifEnabled() {
+  try { return localStorage.getItem(NOTIF_PREF_KEY) === "1" && Notification.permission === "granted"; } catch (e) { return false; }
+}
+function updateNotifIcon() {
+  const btn = document.getElementById("notif-btn");
+  if (!btn) return;
+  const on = (() => { try { return localStorage.getItem(NOTIF_PREF_KEY) === "1" && typeof Notification !== "undefined" && Notification.permission === "granted"; } catch (e) { return false; } })();
+  btn.classList.toggle("text-marigold-400", on);
+  btn.classList.toggle("text-base-300", !on);
+  btn.title = on ? "Notifications on — tap to turn off" : "Enable notifications";
+}
+async function toggleNotifications() {
+  if (typeof Notification === "undefined") { toast("Notifications aren't supported on this browser.", "error"); return; }
+  if (notifEnabled()) {
+    try { localStorage.setItem(NOTIF_PREF_KEY, "0"); } catch (e) {}
+    updateNotifIcon();
+    toast("Notifications turned off");
+    return;
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm === "granted") {
+      try { localStorage.setItem(NOTIF_PREF_KEY, "1"); } catch (e) {}
+      toast("Notifications enabled 🔔", "success");
+      sendNotification("Hill Trail", { body: "You'll now get notified when the group adds things.", silent: true });
+    } else {
+      toast("Notifications blocked — enable them in your browser/site settings to turn this on.", "error");
+    }
+  } catch (e) { toast("Couldn't enable notifications.", "error"); }
+  updateNotifIcon();
+}
+function sendNotification(title, options = {}) {
+  if (!notifEnabled()) return;
+  const payload = Object.assign({
+    icon: "icons/icon-192.png", badge: "icons/icon-192.png",
+    tag: options.tag || `hilltrail-${Date.now()}`,
+  }, options);
+  try {
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(reg => reg.showNotification(title, payload)).catch(() => { try { new Notification(title, payload); } catch (e) {} });
+    } else {
+      new Notification(title, payload);
+    }
+  } catch (e) { /* notification blocked or unsupported — fail silently, toast already covers in-app feedback */ }
+}
+// Tracks which keys we've already notified for, so a fresh page load doesn't
+// re-notify for every pre-existing item the moment Firebase syncs in.
+const notifiedKeys = { expenses: new Set(), polls: new Set(), notes: new Set(), trains: new Set(), places: new Set(), chat: new Set() };
+let notifBaselineReady = { expenses: false, polls: false, notes: false, trains: false, places: false, chat: false };
+function notifyNewEntries(path, dataObj, { titleFn, bodyFn, tag }) {
+  const ids = Object.keys(dataObj || {});
+  if (!notifBaselineReady[path]) {
+    ids.forEach(id => notifiedKeys[path].add(id));
+    notifBaselineReady[path] = true;
+    return;
+  }
+  ids.forEach(id => {
+    if (notifiedKeys[path].has(id)) return;
+    notifiedKeys[path].add(id);
+    const item = dataObj[id];
+    if (!item) return;
+    if (item.addedBy && item.addedBy === state.me) return;
+    if (item.author && item.author === state.me) return;
+    if (item.payer && item.payer === state.me && path === "expenses") { /* still notify payer's own log on other devices is fine */ }
+    sendNotification(titleFn(item), { body: bodyFn(item), tag: `${tag}-${id}` });
+  });
 }
 
 // ----------------------------------------------------
@@ -561,6 +720,7 @@ function switchView(view) {
 }
 document.querySelectorAll(".nav-btn").forEach(btn => { btn.addEventListener("click", () => switchView(btn.dataset.view)); });
 document.getElementById("open-profile-btn").addEventListener("click", () => promptForIdentity(true));
+document.getElementById("notif-btn").addEventListener("click", toggleNotifications);
 
 function renderFilterChips() {
   const wrap = document.getElementById("filter-chips");
@@ -583,6 +743,10 @@ function getFilteredPlaces() {
     list = list.filter(p => (p.tags || []).includes(state.activeCategoryFilter) || p.category === state.activeCategoryFilter);
   }
   if (state.unvisitedOnly) list = list.filter(p => !p.visited);
+  if (state.feedSearch) {
+    const q = state.feedSearch;
+    list = list.filter(p => (p.name || "").toLowerCase().includes(q) || (p.region || "").toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q) || (p.tags || []).some(t => (t || "").toLowerCase().includes(q)));
+  }
   return list.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
 }
 
@@ -692,14 +856,35 @@ function openPlaceDetail(id) {
           </a>
         </div>
 
+        <div class="mb-5">
+          <label class="text-xs font-mono text-base-400 mb-1.5 block">Assign to itinerary day</label>
+          <div class="flex items-center gap-2">
+            <select id="modal-day-select" class="flex-1 bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+              <option value="">Not planned</option>
+              ${[1,2,3,4,5,6,7].map(n => `<option value="${n}" ${String(p.itineraryDay) === String(n) ? "selected" : ""}>Day ${n}</option>`).join("")}
+            </select>
+          </div>
+        </div>
+
         <button id="modal-visited-btn" data-id="${p.id}" class="visited-btn w-full flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold border ${p.visited ? 'bg-pine-500/15 border-pine-500 text-pine-300' : 'bg-base-800 border-base-600 text-base-200'}">
           ${p.visited ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg> Visited ✅ ${p.visitedBy ? '· by ' + escapeHtml(p.visitedBy) : ''}` : `Mark as Visited`}
         </button>
+        ${p.addedBy ? `<button id="modal-delete-place-btn" data-id="${p.id}" class="w-full mt-2 text-center text-[11px] font-mono text-clay-400 py-2">Remove this place</button>` : ""}
       </div>
     </div>
   `, { wide: true });
   root.querySelector("#modal-close-x").addEventListener("click", closeModal);
   root.querySelector("#modal-visited-btn").addEventListener("click", () => { toggleVisited(p.id); closeModal(); });
+  root.querySelector("#modal-day-select").addEventListener("change", (e) => {
+    const val = e.target.value;
+    db.update("places", p.id, { itineraryDay: val ? Number(val) : null }).then(() => toast(val ? `Added to Day ${val} 🗓️` : "Removed from itinerary"));
+  });
+  const delBtn = root.querySelector("#modal-delete-place-btn");
+  if (delBtn) {
+    delBtn.addEventListener("click", () => {
+      if (confirm(`Remove "${p.name}" from the trip?`)) { db.remove("places", p.id).then(() => { toast("Place removed"); closeModal(); }); }
+    });
+  }
 }
 
 function openAddPlaceModal() {
@@ -872,20 +1057,30 @@ function renderExpenses() {
   if (list.length === 0) {
     listEl.innerHTML = `<p class="text-sm text-base-500 text-center py-3">No expenses logged yet.</p>`;
   } else {
-    listEl.innerHTML = list.slice(0, 8).map(e => `
+    listEl.innerHTML = list.map(e => `
       <div class="flex items-center justify-between bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5">
-        <div>
-          <p class="text-sm font-semibold text-base-50">${escapeHtml(e.label)}</p>
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-base-50 truncate">${escapeHtml(e.label)}</p>
           <p class="text-[11px] text-base-400 font-mono">${escapeHtml(e.payer)} paid · split ${e.splitWith.length} ways</p>
         </div>
-        <p class="font-display font-bold text-marigold-400">₹${Number(e.amount).toLocaleString("en-IN")}</p>
+        <div class="flex items-center gap-2.5 shrink-0 ml-2">
+          <p class="font-display font-bold text-marigold-400">₹${Number(e.amount).toLocaleString("en-IN")}</p>
+          <button data-id="${e.id}" class="expense-edit text-base-500 hover:text-marigold-400 p-1" title="Edit"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M11 4H4v16h16v-7M17.5 3.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 8.5-8.5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button data-id="${e.id}" class="expense-delete text-base-500 hover:text-clay-400 p-1" title="Delete"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a1 1 0 01-1 1H7a1 1 0 01-1-1V6h12z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
       </div>
     `).join("");
   }
+  listEl.querySelectorAll(".expense-edit").forEach(btn => btn.addEventListener("click", () => openEditExpenseModal(btn.dataset.id)));
+  listEl.querySelectorAll(".expense-delete").forEach(btn => btn.addEventListener("click", () => {
+    if (confirm("Delete this expense?")) { db.remove("expenses", btn.dataset.id).then(() => toast("Expense deleted")); }
+  }));
 
   const balances = {};
   TRIP_MEMBERS.forEach(m => balances[m] = 0);
+  let totalSpent = 0;
   list.forEach(e => {
+    totalSpent += Number(e.amount) || 0;
     const share = e.amount / e.splitWith.length;
     e.splitWith.forEach(m => { balances[m] = (balances[m] || 0) - share; });
     balances[e.payer] = (balances[e.payer] || 0) + e.amount;
@@ -905,26 +1100,59 @@ function renderExpenses() {
   settleEl.innerHTML = settlements.length === 0
     ? `<p class="text-xs text-base-500">Everyone's settled up 🎉</p>`
     : settlements.map(s => `<div class="flex items-center justify-between text-sm"><span class="text-base-200"><span class="font-semibold">${escapeHtml(s.from)}</span> → <span class="font-semibold">${escapeHtml(s.to)}</span></span><span class="font-mono text-clay-400">₹${s.amt.toLocaleString("en-IN")}</span></div>`).join("");
+
+  renderBudgetBar(totalSpent);
 }
 
-function openAddExpenseModal() {
+const BUDGET_KEY = "hilltrail_trip_budget";
+function getBudget() { try { const v = parseFloat(localStorage.getItem(BUDGET_KEY)); return isNaN(v) ? null : v; } catch (e) { return null; } }
+function setBudget(v) { try { localStorage.setItem(BUDGET_KEY, String(v)); } catch (e) {} }
+function renderBudgetBar(totalSpent) {
+  const budget = getBudget();
+  const wrap = document.getElementById("budget-bar-wrap");
+  if (!budget || budget <= 0) { wrap.classList.add("hidden"); return; }
+  wrap.classList.remove("hidden");
+  const pct = Math.min(100, Math.round((totalSpent / budget) * 100));
+  document.getElementById("budget-bar-fill").style.width = pct + "%";
+  document.getElementById("budget-bar-fill").className = `h-full ${pct >= 100 ? 'bg-clay-500' : pct >= 80 ? 'bg-marigold-500' : 'bg-pine-500'}`;
+  document.getElementById("budget-label").textContent = `₹${Math.round(totalSpent).toLocaleString("en-IN")} / ₹${budget.toLocaleString("en-IN")} (${pct}%)`;
+}
+document.getElementById("set-budget-btn").addEventListener("click", () => {
+  const current = getBudget();
+  const val = prompt("Set the total trip budget (₹):", current ? String(current) : "");
+  if (val === null) return;
+  const num = parseFloat(val);
+  if (isNaN(num) || num <= 0) { toast("Enter a valid amount.", "error"); return; }
+  setBudget(num);
+  renderExpenses();
+  toast("Trip budget set 🎯", "success");
+});
+document.getElementById("reset-expenses-btn").addEventListener("click", () => {
+  const list = Object.keys(state.expenses);
+  if (list.length === 0) { toast("No expenses to reset."); return; }
+  if (!confirm(`Reset ALL ${list.length} expense logs for everyone? This can't be undone.`)) return;
+  Promise.all(list.map(id => db.remove("expenses", id))).then(() => toast("All expenses reset", "success"));
+});
+
+function openAddExpenseModal(editId = null) {
+  const editing = editId ? state.expenses[editId] : null;
   const memberChecks = TRIP_MEMBERS.map(m => `
     <label class="flex items-center gap-2 bg-base-800 border border-base-700 rounded-lg px-3 py-2 text-sm">
-      <input type="checkbox" name="splitWith" value="${escapeHtml(m)}" checked class="accent-marigold-500 w-4 h-4"> ${escapeHtml(m)}
+      <input type="checkbox" name="splitWith" value="${escapeHtml(m)}" ${!editing || (editing.splitWith || []).includes(m) ? "checked" : ""} class="accent-marigold-500 w-4 h-4"> ${escapeHtml(m)}
     </label>`).join("");
-  const payerOptions = TRIP_MEMBERS.map(m => `<option value="${escapeHtml(m)}" ${m === state.me ? "selected" : ""}>${escapeHtml(m)}</option>`).join("");
+  const payerOptions = TRIP_MEMBERS.map(m => `<option value="${escapeHtml(m)}" ${(editing ? editing.payer === m : m === state.me) ? "selected" : ""}>${escapeHtml(m)}</option>`).join("");
   const root = openModal(`
     <div class="p-5">
-      <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">Log an Expense</h2>
+      <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">${editing ? "Edit Expense" : "Log an Expense"}</h2>
       <form id="expense-form" class="flex flex-col gap-3">
         <div>
           <label class="text-xs font-mono text-base-400 mb-1 block">What was it for? *</label>
-          <input required name="label" type="text" placeholder="e.g. Pork Platters at Kunga" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+          <input required name="label" type="text" value="${editing ? escapeHtml(editing.label) : ''}" placeholder="e.g. Pork Platters at Kunga" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
         </div>
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-xs font-mono text-base-400 mb-1 block">Amount (₹) *</label>
-            <input required name="amount" type="number" min="1" step="any" placeholder="2400" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
+            <input required name="amount" type="number" min="1" step="any" value="${editing ? editing.amount : ''}" placeholder="2400" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500">
           </div>
           <div>
             <label class="text-xs font-mono text-base-400 mb-1 block">Paid by *</label>
@@ -935,7 +1163,7 @@ function openAddExpenseModal() {
           <label class="text-xs font-mono text-base-400 mb-1.5 block">Split between</label>
           <div class="grid grid-cols-2 gap-2">${memberChecks}</div>
         </div>
-        <button type="submit" class="mt-1 w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">Add Expense</button>
+        <button type="submit" class="mt-1 w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">${editing ? "Save Changes" : "Add Expense"}</button>
       </form>
     </div>
   `);
@@ -944,11 +1172,38 @@ function openAddExpenseModal() {
     const fd = new FormData(e.target);
     const splitWith = fd.getAll("splitWith");
     if (splitWith.length === 0) { toast("Pick at least one person to split with.", "error"); return; }
-    db.push("expenses", { label: (fd.get("label") || "").trim(), amount: parseFloat(fd.get("amount")), payer: fd.get("payer"), splitWith, ts: Date.now(), })
-      .then(() => { toast("Expense logged 💸", "success"); closeModal(); });
+    const payload = { label: (fd.get("label") || "").trim(), amount: parseFloat(fd.get("amount")), payer: fd.get("payer"), splitWith };
+    if (editing) {
+      db.update("expenses", editId, payload).then(() => { toast("Expense updated", "success"); closeModal(); });
+    } else {
+      payload.ts = Date.now(); payload.addedBy = state.me || "Someone";
+      db.push("expenses", payload).then(() => { toast("Expense logged 💸", "success"); closeModal(); });
+    }
   });
 }
+function openEditExpenseModal(id) { openAddExpenseModal(id); }
 document.getElementById("add-expense-btn").addEventListener("click", () => { if (!state.me) { promptForIdentity(true); return; } openAddExpenseModal(); });
+document.getElementById("export-summary-btn").addEventListener("click", () => {
+  const list = Object.values(state.expenses);
+  if (list.length === 0) { toast("No expenses to export yet."); return; }
+  let csv = "Label,Amount,Paid By,Split With,Date\n";
+  list.forEach(e => {
+    const row = [e.label, e.amount, e.payer, (e.splitWith || []).join(" | "), e.ts ? new Date(e.ts).toLocaleString() : ""];
+    csv += row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(",") + "\n";
+  });
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "hill-trail-expenses.csv"; document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+  toast("Expense summary downloaded", "success");
+});
+document.getElementById("share-trip-btn").addEventListener("click", async () => {
+  const shareData = { title: "Siliguri & the Hills — Trip App", text: "Join our shared trip planner!", url: location.href };
+  if (navigator.share) { try { await navigator.share(shareData); } catch (e) {} }
+  else { try { await navigator.clipboard.writeText(location.href); toast("Link copied to clipboard 🔗", "success"); } catch (e) { toast("Couldn't copy link.", "error"); } }
+});
+
 
 function renderPolls() {
   const list = Object.entries(state.polls).map(([id, p]) => ({ id, ...p })).sort((a, b) => (b.ts || 0) - (a.ts || 0));
@@ -966,7 +1221,15 @@ function renderPolls() {
           <div class="relative flex items-center justify-between px-3 py-2"><span class="text-sm ${mine ? 'text-marigold-300 font-semibold' : 'text-base-200'}">${escapeHtml(opt)} ${mine ? '✓' : ''}</span><span class="text-[11px] font-mono text-base-400">${count} · ${pct}%</span></div>
         </button>`;
     }).join("");
-    return `<div class="bg-base-800/50 border border-base-700 rounded-xl p-3.5"><p class="text-sm font-semibold text-base-50 mb-2">${escapeHtml(poll.question)}</p><div class="flex flex-col gap-1.5">${optionsHtml}</div><p class="text-[11px] text-base-500 mt-2 font-mono">${totalVotes} of ${TRIP_MEMBERS.length} voted · by ${escapeHtml(poll.createdBy || "someone")}</p></div>`;
+    return `<div class="bg-base-800/50 border border-base-700 rounded-xl p-3.5">
+      <div class="flex items-start justify-between gap-2 mb-2">
+        <p class="text-sm font-semibold text-base-50">${escapeHtml(poll.question)}</p>
+        <div class="flex items-center gap-2 shrink-0">
+          <button data-id="${poll.id}" class="poll-edit text-base-500 hover:text-marigold-400 p-0.5" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4v16h16v-7M17.5 3.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 8.5-8.5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button data-id="${poll.id}" class="poll-delete text-base-500 hover:text-clay-400 p-0.5" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a1 1 0 01-1 1H7a1 1 0 01-1-1V6h12z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+      </div>
+      <div class="flex flex-col gap-1.5">${optionsHtml}</div><p class="text-[11px] text-base-500 mt-2 font-mono">${totalVotes} of ${TRIP_MEMBERS.length} voted · by ${escapeHtml(poll.createdBy || "someone")}</p></div>`;
   }).join("");
 
   el.querySelectorAll(".poll-opt-btn").forEach(btn => {
@@ -977,18 +1240,25 @@ function renderPolls() {
       db.update("polls", pollId, { votes: newVotes });
     });
   });
+  el.querySelectorAll(".poll-edit").forEach(btn => btn.addEventListener("click", () => openAddPollModal(btn.dataset.id)));
+  el.querySelectorAll(".poll-delete").forEach(btn => btn.addEventListener("click", () => {
+    if (confirm("Delete this poll? All votes will be lost.")) { db.remove("polls", btn.dataset.id).then(() => toast("Poll deleted")); }
+  }));
 }
 
-function openAddPollModal() {
+function openAddPollModal(editId = null) {
+  const editing = editId ? state.polls[editId] : null;
+  const opts = editing ? editing.options : [];
   const root = openModal(`
     <div class="p-5">
-      <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">New Poll</h2>
+      <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">${editing ? "Edit Poll" : "New Poll"}</h2>
       <form id="poll-form" class="flex flex-col gap-3">
-        <div><label class="text-xs font-mono text-base-400 mb-1 block">Question *</label><input required name="question" type="text" placeholder="Should we go to Tiger Hill tomorrow?" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
-        <div><label class="text-xs font-mono text-base-400 mb-1 block">Option A *</label><input required name="optA" type="text" placeholder="Yes" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
-        <div><label class="text-xs font-mono text-base-400 mb-1 block">Option B *</label><input required name="optB" type="text" placeholder="No" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
-        <div><label class="text-xs font-mono text-base-400 mb-1 block">Option C <span class="text-base-500">(optional)</span></label><input name="optC" type="text" placeholder="Let's vote on it" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
-        <button type="submit" class="mt-1 w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">Start Poll</button>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Question *</label><input required name="question" type="text" value="${editing ? escapeHtml(editing.question) : ''}" placeholder="Should we go to Tiger Hill tomorrow?" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Option A *</label><input required name="optA" type="text" value="${editing ? escapeHtml(opts[0] || '') : ''}" placeholder="Yes" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Option B *</label><input required name="optB" type="text" value="${editing ? escapeHtml(opts[1] || '') : ''}" placeholder="No" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Option C <span class="text-base-500">(optional)</span></label><input name="optC" type="text" value="${editing ? escapeHtml(opts[2] || '') : ''}" placeholder="Let's vote on it" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        ${editing ? `<p class="text-[11px] text-base-500">Editing keeps existing votes, but if you change option order or count, results may shift.</p>` : ""}
+        <button type="submit" class="mt-1 w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">${editing ? "Save Changes" : "Start Poll"}</button>
       </form>
     </div>
   `);
@@ -996,8 +1266,12 @@ function openAddPollModal() {
     e.preventDefault();
     const fd = new FormData(e.target);
     const options = [fd.get("optA"), fd.get("optB"), fd.get("optC")].map(s => (s || "").trim()).filter(Boolean);
-    db.push("polls", { question: (fd.get("question") || "").trim(), options, votes: {}, createdBy: state.me || "Someone", ts: Date.now(), })
-      .then(() => { toast("Poll created — go vote! 🗳️", "success"); closeModal(); });
+    if (editing) {
+      db.update("polls", editId, { question: (fd.get("question") || "").trim(), options }).then(() => { toast("Poll updated", "success"); closeModal(); });
+    } else {
+      db.push("polls", { question: (fd.get("question") || "").trim(), options, votes: {}, createdBy: state.me || "Someone", ts: Date.now(), })
+        .then(() => { toast("Poll created — go vote! 🗳️", "success"); closeModal(); });
+    }
   });
 }
 document.getElementById("add-poll-btn").addEventListener("click", () => { if (!state.me) { promptForIdentity(true); return; } openAddPollModal(); });
@@ -1032,6 +1306,223 @@ function openAddNoteModal() {
   });
 }
 document.getElementById("add-note-btn").addEventListener("click", () => { if (!state.me) { promptForIdentity(true); return; } openAddNoteModal(); });
+
+// ----------------------------------------------------
+// EMERGENCY CONTACTS (SOS) — editable & deletable
+// ----------------------------------------------------
+function renderSos() {
+  const list = Object.entries(state.sos).map(([id, c]) => ({ id, ...c })).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  const el = document.getElementById("sos-list");
+  if (!el) return;
+  if (list.length === 0) { el.innerHTML = `<p class="text-sm text-base-500 text-center py-2">No emergency contacts yet.</p>`; return; }
+  el.innerHTML = list.map(c => `
+    <div class="flex items-center justify-between bg-base-900/40 border border-clay-600/30 rounded-xl px-3.5 py-2.5">
+      <div class="min-w-0">
+        <p class="text-[11px] font-mono uppercase text-clay-300 tracking-wide">${escapeHtml(c.label)}</p>
+        <p class="text-sm font-semibold text-base-50 truncate">${escapeHtml(c.name)}</p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0 ml-2">
+        ${c.phone ? `<a href="tel:${escapeHtml(c.phone)}" class="font-mono text-sm text-pine-300 active:scale-95 transition">${escapeHtml(c.phone)}</a>` : `<span class="text-[11px] text-base-500">no number</span>`}
+        <button data-id="${c.id}" class="sos-edit text-base-500 hover:text-marigold-400 p-1" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4v16h16v-7M17.5 3.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 8.5-8.5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button data-id="${c.id}" class="sos-delete text-base-500 hover:text-clay-400 p-1" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a1 1 0 01-1 1H7a1 1 0 01-1-1V6h12z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
+  `).join("");
+  el.querySelectorAll(".sos-edit").forEach(btn => btn.addEventListener("click", () => openAddSosModal(btn.dataset.id)));
+  el.querySelectorAll(".sos-delete").forEach(btn => btn.addEventListener("click", () => {
+    if (confirm("Remove this contact?")) { db.remove("sos", btn.dataset.id).then(() => toast("Contact removed")); }
+  }));
+}
+function openAddSosModal(editId = null) {
+  const editing = editId ? state.sos[editId] : null;
+  const root = openModal(`
+    <div class="p-5">
+      <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">${editing ? "Edit Contact" : "Add Emergency Contact"}</h2>
+      <form id="sos-form" class="flex flex-col gap-3">
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Label *</label><input required name="label" type="text" value="${editing ? escapeHtml(editing.label) : ''}" placeholder="e.g. Tour Driver" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Name *</label><input required name="name" type="text" value="${editing ? escapeHtml(editing.name) : ''}" placeholder="e.g. Suresh" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Phone</label><input name="phone" type="tel" value="${editing ? escapeHtml(editing.phone || '') : ''}" placeholder="e.g. 98765 43210" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <button type="submit" class="mt-1 w-full bg-clay-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">${editing ? "Save Changes" : "Add Contact"}</button>
+      </form>
+    </div>
+  `);
+  root.querySelector("#sos-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const payload = { label: (fd.get("label") || "").trim(), name: (fd.get("name") || "").trim(), phone: (fd.get("phone") || "").trim() };
+    if (editing) { db.update("sos", editId, payload).then(() => { toast("Contact updated", "success"); closeModal(); }); }
+    else { db.push("sos", { ...payload, ts: Date.now() }).then(() => { toast("Contact added", "success"); closeModal(); }); }
+  });
+}
+document.getElementById("add-sos-btn").addEventListener("click", openAddSosModal);
+
+// ----------------------------------------------------
+// TRAIN TICKETS
+// ----------------------------------------------------
+function renderTrains() {
+  const list = Object.entries(state.trains).map(([id, t]) => ({ id, ...t })).sort((a, b) => (a.datetime || "").localeCompare(b.datetime || ""));
+  const el = document.getElementById("train-list");
+  if (!el) return;
+  if (list.length === 0) { el.innerHTML = `<p class="text-sm text-base-500 text-center py-2">No train tickets added yet.</p>`; return; }
+  el.innerHTML = list.map(t => `
+    <div class="bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5">
+      <div class="flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p class="text-sm font-semibold text-base-50 truncate">${escapeHtml(t.trainName || "Train")} ${t.trainNo ? `<span class="text-base-400 font-mono text-[11px]">#${escapeHtml(t.trainNo)}</span>` : ""}</p>
+          <p class="text-[11px] text-base-400 font-mono mt-0.5">${escapeHtml(t.from || "?")} → ${escapeHtml(t.to || "?")}</p>
+          <p class="text-[11px] text-base-400 font-mono">${t.datetime ? new Date(t.datetime).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "no date set"}${t.pnr ? " · PNR " + escapeHtml(t.pnr) : ""}${t.seat ? " · Seat " + escapeHtml(t.seat) : ""}</p>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button data-id="${t.id}" class="train-edit text-base-500 hover:text-marigold-400 p-1" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M11 4H4v16h16v-7M17.5 3.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 8.5-8.5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button data-id="${t.id}" class="train-delete text-base-500 hover:text-clay-400 p-1" title="Delete"><svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M8 6V4a1 1 0 011-1h6a1 1 0 011 1v2m2 0v14a1 1 0 01-1 1H7a1 1 0 01-1-1V6h12z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        </div>
+      </div>
+      ${t.addedBy ? `<p class="text-[10px] text-base-500 font-mono mt-1">added by ${escapeHtml(t.addedBy)}</p>` : ""}
+    </div>
+  `).join("");
+  el.querySelectorAll(".train-edit").forEach(btn => btn.addEventListener("click", () => openAddTrainModal(btn.dataset.id)));
+  el.querySelectorAll(".train-delete").forEach(btn => btn.addEventListener("click", () => {
+    if (confirm("Remove this train ticket?")) { db.remove("trains", btn.dataset.id).then(() => toast("Ticket removed")); }
+  }));
+}
+function openAddTrainModal(editId = null) {
+  const editing = editId ? state.trains[editId] : null;
+  const root = openModal(`
+    <div class="p-5">
+      <h2 class="font-display font-extrabold text-xl text-base-50 mb-4">${editing ? "Edit Train Ticket" : "Add Train Ticket"}</h2>
+      <form id="train-form" class="flex flex-col gap-3">
+        <div><label class="text-xs font-mono text-base-400 mb-1 block">Train name</label><input name="trainName" type="text" value="${editing ? escapeHtml(editing.trainName || '') : ''}" placeholder="e.g. Padatik Express" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-xs font-mono text-base-400 mb-1 block">Train no.</label><input name="trainNo" type="text" value="${editing ? escapeHtml(editing.trainNo || '') : ''}" placeholder="12377" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+          <div><label class="text-xs font-mono text-base-400 mb-1 block">PNR</label><input name="pnr" type="text" value="${editing ? escapeHtml(editing.pnr || '') : ''}" placeholder="2418..." class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-xs font-mono text-base-400 mb-1 block">From *</label><input required name="from" type="text" value="${editing ? escapeHtml(editing.from || '') : ''}" placeholder="Sealdah" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+          <div><label class="text-xs font-mono text-base-400 mb-1 block">To *</label><input required name="to" type="text" value="${editing ? escapeHtml(editing.to || '') : ''}" placeholder="NJP" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="text-xs font-mono text-base-400 mb-1 block">Departure</label><input name="datetime" type="datetime-local" value="${editing && editing.datetime ? editing.datetime : ''}" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+          <div><label class="text-xs font-mono text-base-400 mb-1 block">Seat / Coach</label><input name="seat" type="text" value="${editing ? escapeHtml(editing.seat || '') : ''}" placeholder="B2 / 34" class="w-full bg-base-800 border border-base-700 rounded-xl px-3.5 py-2.5 text-sm text-base-50 outline-none focus:border-marigold-500"></div>
+        </div>
+        <button type="submit" class="mt-1 w-full bg-marigold-500 text-base-950 font-display font-bold rounded-xl py-3 active:scale-[0.98] transition">${editing ? "Save Changes" : "Add Ticket"}</button>
+      </form>
+    </div>
+  `);
+  root.querySelector("#train-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const payload = { trainName: (fd.get("trainName") || "").trim(), trainNo: (fd.get("trainNo") || "").trim(), pnr: (fd.get("pnr") || "").trim(), from: (fd.get("from") || "").trim(), to: (fd.get("to") || "").trim(), datetime: fd.get("datetime") || "", seat: (fd.get("seat") || "").trim() };
+    if (editing) { db.update("trains", editId, payload).then(() => { toast("Ticket updated", "success"); closeModal(); }); }
+    else { db.push("trains", { ...payload, ts: Date.now(), addedBy: state.me || "Someone" }).then(() => { toast("Train ticket added 🚆", "success"); closeModal(); }); }
+  });
+}
+document.getElementById("add-train-btn").addEventListener("click", () => { if (!state.me) { promptForIdentity(true); return; } openAddTrainModal(); });
+
+// ----------------------------------------------------
+// TRIP COUNTDOWN
+// ----------------------------------------------------
+const TRIP_DATE_KEY = "hilltrail_trip_date";
+function getTripDate() { try { return localStorage.getItem(TRIP_DATE_KEY); } catch (e) { return null; } }
+function renderCountdown() {
+  const card = document.getElementById("countdown-card");
+  const dateStr = getTripDate();
+  if (!dateStr) { card.classList.add("hidden"); return; }
+  const target = new Date(dateStr);
+  if (isNaN(target.getTime())) { card.classList.add("hidden"); return; }
+  card.classList.remove("hidden");
+  const now = new Date();
+  const diffMs = target - now;
+  const text = document.getElementById("countdown-text");
+  if (diffMs <= 0 && diffMs > -86400000) { text.textContent = "Trip day is here! 🏔️"; }
+  else if (diffMs <= -86400000) { text.textContent = "Trip in progress / done"; }
+  else {
+    const days = Math.ceil(diffMs / 86400000);
+    text.textContent = days === 1 ? "1 day to go" : `${days} days to go`;
+  }
+}
+document.getElementById("countdown-edit-btn").addEventListener("click", () => {
+  const current = getTripDate();
+  const val = prompt("Trip start date (YYYY-MM-DD):", current ? current.slice(0, 10) : "");
+  if (val === null) return;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(val.trim())) { toast("Use the format YYYY-MM-DD.", "error"); return; }
+  try { localStorage.setItem(TRIP_DATE_KEY, val.trim()); } catch (e) {}
+  renderCountdown();
+  toast("Trip date set 🗓️", "success");
+});
+
+// ----------------------------------------------------
+// GROUP SHOUTBOX (live chat)
+// ----------------------------------------------------
+function renderChat() {
+  const list = Object.entries(state.chat).map(([id, c]) => ({ id, ...c })).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  const el = document.getElementById("chat-list");
+  if (!el) return;
+  if (list.length === 0) { el.innerHTML = `<p class="text-sm text-base-500 text-center py-2">No messages yet — say hi 👋</p>`; }
+  else {
+    el.innerHTML = list.slice(-50).map(c => `
+      <div class="flex flex-col ${c.author === state.me ? 'items-end' : 'items-start'}">
+        <div class="max-w-[85%] ${c.author === state.me ? 'bg-marigold-500/20 border-marigold-500/40' : 'bg-base-800 border-base-700'} border rounded-xl px-3 py-2">
+          <p class="text-sm text-base-100 break-words">${escapeHtml(c.text)}</p>
+        </div>
+        <p class="text-[10px] font-mono text-base-500 mt-0.5">${escapeHtml(c.author || "someone")}</p>
+      </div>
+    `).join("");
+    el.scrollTop = el.scrollHeight;
+  }
+}
+document.getElementById("chat-form").addEventListener("submit", (e) => {
+  e.preventDefault();
+  if (!state.me) { promptForIdentity(true); return; }
+  const input = document.getElementById("chat-input");
+  const text = input.value.trim();
+  if (!text) return;
+  db.push("chat", { text, author: state.me, ts: Date.now() }).then(() => { input.value = ""; });
+});
+
+// ----------------------------------------------------
+// FEED SEARCH + SURPRISE ME
+// ----------------------------------------------------
+document.getElementById("feed-search").addEventListener("input", (e) => {
+  state.feedSearch = e.target.value.trim().toLowerCase();
+  renderFeed();
+});
+document.getElementById("surprise-me-btn").addEventListener("click", () => {
+  const unvisited = Object.values(state.places).filter(p => !p.visited);
+  const pool = unvisited.length > 0 ? unvisited : Object.values(state.places);
+  if (pool.length === 0) { toast("No places to pick from yet."); return; }
+  const pick = pool[Math.floor(Math.random() * pool.length)];
+  toast(`How about: ${pick.name}? 🎲`, "success");
+  openPlaceDetail(pick.id);
+});
+
+// ----------------------------------------------------
+// DAY-BY-DAY ITINERARY
+// ----------------------------------------------------
+function renderItinerary() {
+  const el = document.getElementById("itinerary-list");
+  if (!el) return;
+  const assigned = Object.values(state.places).filter(p => p.itineraryDay);
+  if (assigned.length === 0) { el.innerHTML = `<p class="text-sm text-base-500 text-center py-2">No days planned yet.</p>`; return; }
+  const byDay = {};
+  assigned.forEach(p => { (byDay[p.itineraryDay] = byDay[p.itineraryDay] || []).push(p); });
+  const days = Object.keys(byDay).sort((a, b) => Number(a) - Number(b));
+  el.innerHTML = days.map(d => `
+    <div>
+      <p class="text-[11px] font-mono uppercase text-marigold-500 mb-1.5">Day ${escapeHtml(d)}</p>
+      <div class="flex flex-col gap-1.5">
+        ${byDay[d].map(p => `
+          <div class="flex items-center justify-between bg-base-800 border border-base-700 rounded-lg px-3 py-2">
+            <span class="text-sm text-base-100 truncate">${escapeHtml(p.name)}</span>
+            <button data-id="${p.id}" class="itin-remove text-base-500 hover:text-clay-400 text-[11px] shrink-0 ml-2">remove</button>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+  `).join("");
+  el.querySelectorAll(".itin-remove").forEach(btn => btn.addEventListener("click", () => {
+    db.update("places", btn.dataset.id, { itineraryDay: null });
+  }));
+}
 
 function renderPacking() {
   const list = Object.entries(state.packing).map(([id, it]) => ({ id, ...it })).sort((a, b) => (a.ts || 0) - (b.ts || 0));
@@ -1087,7 +1578,86 @@ async function loadWeather() {
 }
 document.getElementById("weather-refresh").addEventListener("click", loadWeather);
 
-function setupPwa() {}
+// ----------------------------------------------------
+// PWA: service worker registration + install flows
+// ----------------------------------------------------
+let deferredInstallPrompt = null;
+
+function isStandalone() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+function isIOS() {
+  return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+function setupPwa() {
+  // Register the service worker so the app is installable and works offline.
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(e => console.warn("Service worker registration failed:", e));
+  }
+
+  if (isStandalone()) return; // already installed — nothing to prompt
+
+  // Android/desktop Chrome: capture the native install prompt.
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    document.getElementById("install-pwa-btn").classList.remove("hidden");
+    document.getElementById("install-pwa-btn").classList.add("flex");
+  });
+
+  document.getElementById("install-pwa-btn").addEventListener("click", async () => {
+    if (deferredInstallPrompt) {
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      document.getElementById("install-pwa-btn").classList.add("hidden");
+      if (choice.outcome === "accepted") toast("Installing Hill Trail… 🏔️", "success");
+    } else if (isIOS()) {
+      showIosInstallHint();
+    } else {
+      toast("Open this site's browser menu and choose 'Install app' or 'Add to Home Screen'.");
+    }
+  });
+
+  // iOS Safari never fires beforeinstallprompt — show the install button
+  // straight away with manual instructions instead.
+  if (isIOS()) {
+    const btn = document.getElementById("install-pwa-btn");
+    btn.classList.remove("hidden");
+    btn.classList.add("flex");
+  }
+
+  window.addEventListener("appinstalled", () => {
+    document.getElementById("install-pwa-btn").classList.add("hidden");
+    toast("Hill Trail installed 🎉", "success");
+  });
+}
+
+function showIosInstallHint() {
+  openModal(`
+    <div class="p-5">
+      <h2 class="font-display font-extrabold text-xl text-base-50 mb-3">Add to Home Screen</h2>
+      <ol class="flex flex-col gap-3 text-sm text-base-200">
+        <li class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-marigold-500/20 text-marigold-400 font-mono text-xs flex items-center justify-center shrink-0">1</span>Tap the <strong class="text-base-50">Share</strong> icon in Safari's toolbar.</li>
+        <li class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-marigold-500/20 text-marigold-400 font-mono text-xs flex items-center justify-center shrink-0">2</span>Scroll down and tap <strong class="text-base-50">Add to Home Screen</strong>.</li>
+        <li class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-marigold-500/20 text-marigold-400 font-mono text-xs flex items-center justify-center shrink-0">3</span>Tap <strong class="text-base-50">Add</strong> — Hill Trail now opens like a real app.</li>
+      </ol>
+    </div>
+  `);
+}
+
+function setupOfflineIndicator() {
+  const banner = document.getElementById("offline-banner");
+  function update() {
+    const offline = !navigator.onLine;
+    banner.classList.toggle("hidden", !offline);
+    banner.classList.toggle("flex", offline);
+  }
+  window.addEventListener("online", update);
+  window.addEventListener("offline", update);
+  update();
+}
 
 function safeRun(label, fn) {
   try { fn(); } catch (e) { console.error(`[init] "${label}" failed:`, e); showStartupWarning(label, e); }
@@ -1124,6 +1694,7 @@ function initApp() {
   // 1. Force the UI to draw the seed data instantly — this never depends on the network.
   state.places = seedPlacesObject();
   state.packing = seedPackingObject();
+  state.sos = seedSosObject();
 
   safeRun("identity prompt", () => promptForIdentity());
   safeRun("filter chips", () => renderFilterChips());
@@ -1131,10 +1702,14 @@ function initApp() {
   safeRun("weather", () => loadWeather());
   safeRun("pwa setup", () => setupPwa());
   safeRun("map", () => initMap());
+  safeRun("notification icon", () => updateNotifIcon());
+  safeRun("trip countdown", () => renderCountdown());
+  safeRun("offline indicator", () => setupOfflineIndicator());
 
   // 2. Actually render the feed and map pins before Firebase even thinks about connecting
   safeRun("feed", () => renderFeed());
   safeRun("map markers", () => syncMapMarkers());
+  safeRun("itinerary", () => renderItinerary());
 
   // 3. Connect to Firebase in the background — guarded so a missing/blocked
   //    Firebase SDK or locked database rules can't take down the rest of the app.
@@ -1143,24 +1718,74 @@ function initApp() {
     db.watch("places", (data) => {
       const placesObj = (data && Object.keys(data).length > 0) ? data : seedPlacesObject();
       Object.keys(placesObj).forEach(key => { if (placesObj[key]) placesObj[key].id = key; });
+      notifyNewEntries("places", placesObj, {
+        titleFn: () => "New place added 📍",
+        bodyFn: (item) => `${item.addedBy || "Someone"} added "${item.name}" to the trip`,
+        tag: "place",
+      });
       state.places = placesObj;
       renderFeed();
       syncMapMarkers();
+      renderItinerary();
     });
   });
   safeRun("live sync (packing)", () => {
     db.seedIfEmpty("packing", seedPackingObject());
     db.watch("packing", (data) => { state.packing = (data && Object.keys(data).length > 0) ? data : seedPackingObject(); renderPacking(); });
   });
-  safeRun("live sync (expenses)", () => db.watch("expenses", (data) => { state.expenses = data || {}; renderExpenses(); }));
-  safeRun("live sync (polls)", () => db.watch("polls", (data) => { state.polls = data || {}; renderPolls(); }));
-  safeRun("live sync (notes)", () => db.watch("notes", (data) => { state.notes = data || {}; renderNotes(); }));
+  safeRun("live sync (sos)", () => {
+    db.seedIfEmpty("sos", seedSosObject());
+    db.watch("sos", (data) => { state.sos = (data && Object.keys(data).length > 0) ? data : seedSosObject(); renderSos(); });
+  });
+  safeRun("live sync (expenses)", () => db.watch("expenses", (data) => {
+    notifyNewEntries("expenses", data || {}, {
+      titleFn: () => "New expense logged 💸",
+      bodyFn: (item) => `${item.payer || "Someone"} logged ₹${item.amount} for "${item.label}"`,
+      tag: "expense",
+    });
+    state.expenses = data || {}; renderExpenses();
+  }));
+  safeRun("live sync (polls)", () => db.watch("polls", (data) => {
+    notifyNewEntries("polls", data || {}, {
+      titleFn: () => "New poll 🗳️",
+      bodyFn: (item) => `${item.createdBy || "Someone"} asked: "${item.question}"`,
+      tag: "poll",
+    });
+    state.polls = data || {}; renderPolls();
+  }));
+  safeRun("live sync (notes)", () => db.watch("notes", (data) => {
+    notifyNewEntries("notes", data || {}, {
+      titleFn: () => "New note pinned 📌",
+      bodyFn: (item) => `${item.author || "Someone"}: "${item.text}"`,
+      tag: "note",
+    });
+    state.notes = data || {}; renderNotes();
+  }));
+  safeRun("live sync (trains)", () => db.watch("trains", (data) => {
+    notifyNewEntries("trains", data || {}, {
+      titleFn: () => "Train ticket added 🚆",
+      bodyFn: (item) => `${item.addedBy || "Someone"} added ${item.trainName || "a train"} (${item.from} → ${item.to})`,
+      tag: "train",
+    });
+    state.trains = data || {}; renderTrains();
+  }));
+  safeRun("live sync (chat)", () => db.watch("chat", (data) => {
+    notifyNewEntries("chat", data || {}, {
+      titleFn: (item) => `${item.author || "Someone"} says…`,
+      bodyFn: (item) => item.text,
+      tag: "chat",
+    });
+    state.chat = data || {}; renderChat();
+  }));
 
   safeRun("geolocation", () => {
     if (navigator.permissions && navigator.permissions.query) {
       navigator.permissions.query({ name: "geolocation" }).then(status => { if (status.state === "granted") locateMe(); }).catch(() => {});
     }
   });
+
+  // Keep the countdown text fresh without needing a reload.
+  setInterval(() => safeRun("trip countdown tick", () => renderCountdown()), 60 * 1000);
 }
 
 document.addEventListener("DOMContentLoaded", initApp);
