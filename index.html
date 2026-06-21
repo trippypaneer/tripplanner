@@ -537,7 +537,13 @@ function switchView(view) {
   document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
   document.getElementById(`view-${view}`).classList.add("active");
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.view === view));
-  if (view === "map" && state.map) { setTimeout(() => state.map.invalidateSize(), 80); }
+  
+  // FIX: Wait 350ms for the tab fade animation to completely finish before drawing the map
+  if (view === "map" && state.map) { 
+    setTimeout(() => {
+      state.map.invalidateSize();
+    }, 350); 
+  }
 }
 document.querySelectorAll(".nav-btn").forEach(btn => { btn.addEventListener("click", () => switchView(btn.dataset.view)); });
 document.getElementById("open-profile-btn").addEventListener("click", () => promptForIdentity(true));
